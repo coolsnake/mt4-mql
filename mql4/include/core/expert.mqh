@@ -135,7 +135,7 @@ int init() {
    //
    error = onInit();                                                       // pre-processing hook
                                                                            //
-   if (!error) {                                                           //
+   if (!error && !__STATUS_OFF) {                                          //
       int initReason = InitReason();                                       //
       if (!initReason) if (CheckErrors("init(12)")) return(last_error);    //
                                                                            //
@@ -259,7 +259,7 @@ int start() {
    // (4) stdLib benachrichtigen
    if (stdlib.start(__ExecutionContext, Tick, Tick.Time, ValidBars, ChangedBars) != NO_ERROR) {
       if (CheckErrors("start(4)")) return(last_error);
-   }         
+   }
 
 
    // (5) ggf. Test initialisieren

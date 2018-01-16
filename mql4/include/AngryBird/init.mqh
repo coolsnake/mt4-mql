@@ -26,8 +26,6 @@ int onInit() {
  * @return int - error status
  */
 int onInit_User() {
-   if (__STATUS_OFF)
-      return(NO_ERROR);
    ResetRuntimeStatus();                                 // handle ERS_TERMINAL_NOT_YET_READY and terminal bug #1
 
 
@@ -90,9 +88,6 @@ int onInit_User() {
  * @return int - error status
  */
 int onInit_Template() {
-   if (__STATUS_OFF)
-      return(NO_ERROR);
-
    if (!IsStoredRuntimeStatus()) {
       catch("onInit_Template(1)  no stored runtime status found", ERR_ILLEGAL_STATE);
       return(-1);                         // hard error
@@ -110,8 +105,6 @@ int onInit_Template() {
  * @return int - error status
  */
 int onInit_Parameters() {
-   if (__STATUS_OFF)
-      return(NO_ERROR);
    catch("onInit_Parameters(1)  input parameter changes not yet supported", ERR_NOT_IMPLEMENTED);
    return(-1);                            // at the moment hard error
 }
@@ -123,8 +116,6 @@ int onInit_Parameters() {
  * @return int - error status
  */
 int onInit_SymbolChange() {
-   if (__STATUS_OFF)
-      return(NO_ERROR);
    catch("onInit_SymbolChange(1)  unsupported symbol change", ERR_ILLEGAL_STATE);
    return(-1);                            // hard stop (must never happen)
 }
@@ -136,12 +127,7 @@ int onInit_SymbolChange() {
  * @return int - error status
  */
 int onInit_Recompile() {
-   if (__STATUS_OFF)
-      return(NO_ERROR);
-
-   // temporarily skip onInit_Template()
-   return(onInit_User());
-
+   return(onInit_User());              // temporarily skip onInit_Template()
    return(onInit_Template());
 }
 
