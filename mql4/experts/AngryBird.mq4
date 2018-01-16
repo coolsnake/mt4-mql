@@ -662,17 +662,15 @@ int ShowStatus(int error=NO_ERROR) {
       return(error);
 
    static bool statusBox; if (!statusBox)
-      statusBox = ShowStatus.Box();
+      statusBox = ShowStatusBox();
+
+   if (!__STATUS_OFF)
+      if (!lots.startSize) CalculateLotsize(1);
 
    string str.status;
 
-   if (__STATUS_OFF) {
-      str.status = StringConcatenate(" switched OFF  [", ErrorDescription(__STATUS_OFF.reason), "]");
-   }
-   else {
-      if (chicken.status == STATUS_PENDING) str.status = " waiting legless";
-      if (!lots.startSize)                  CalculateLotsize(1);
-   }
+   if      (__STATUS_OFF)                     str.status = StringConcatenate(" switched OFF  [", ErrorDescription(__STATUS_OFF.reason), "]");
+   else if (chicken.status == STATUS_PENDING) str.status = " waiting legless";
 
    string msg = StringConcatenate(" ", __NAME__, str.status,                                                                                                              NL,
                                   " --------------",                                                                                                                      NL,
@@ -699,7 +697,7 @@ int ShowStatus(int error=NO_ERROR) {
  *
  * @return bool - success status
  */
-bool ShowStatus.Box() {
+bool ShowStatusBox() {
    if (!__CHART)
       return(false);
 
@@ -720,7 +718,7 @@ bool ShowStatus.Box() {
       }
    }
 
-   return(!catch("ShowStatus.Box(1)"));
+   return(!catch("ShowStatusBox(1)"));
 }
 
 
