@@ -210,14 +210,33 @@ double UpdateGridSize() {
    if (Tick == lastTick)                                       // prevent multiple calculations per tick
       return(lastResult);
 
+   datetime times[];
+   int bars  = ArrayCopySeries(times, MODE_TIME, Symbol(), grid.timeframe);
+   int error = GetLastError();
+
+
+   if (error != NO_ERROR) {
+      // handle ERS_HISTORY_UPDATE
+      if (error != ERS_HISTORY_UPDATE) return(!catch("UpdateGridSize(1)", error));
+      string sTimeframe = PeriodDescription(grid.timeframe);
+
+      warn("UpdateGridSize(2)  "+ sTimeframe +"  sizeof(times["+ sTimeframe +"])="+ bars, ERS_HISTORY_UPDATE);
+
+      if (bars >= 3) {
+         debug("UpdateGridSize(2.1)  times[2]="+ TimeToStr(times[2], TIME_MINUTES) +"  times[1]="+ TimeToStr(times[1], TIME_MINUTES) +"  times[0]="+ TimeToStr(times[0], TIME_MINUTES));
+      }
+   }
+
+
+
    double high = iHigh(NULL, grid.timeframe, iHighest(NULL, grid.timeframe, MODE_HIGH, Grid.Lookback.Periods, 1));
    double low  =  iLow(NULL, grid.timeframe,  iLowest(NULL, grid.timeframe, MODE_LOW,  Grid.Lookback.Periods, 1));
 
-   int error = GetLastError();
+   error = GetLastError();
    if (error != NO_ERROR) {
-      if (error != ERS_HISTORY_UPDATE)
-         return(!catch("UpdateGridSize(1)", error));
-      warn("UpdateGridSize(2)  "+ PeriodDescription(grid.timeframe) +" => ERS_HISTORY_UPDATE, reported "+ Grid.Lookback.Periods +"x"+ PeriodDescription(grid.timeframe) +" range: "+ DoubleToStr((high-low)/Pip, 1) +" pip", error);
+      // handle ERS_HISTORY_UPDATE
+      if (error != ERS_HISTORY_UPDATE) return(!catch("UpdateGridSize(3)", error));
+      warn("UpdateGridSize(4)  "+ PeriodDescription(grid.timeframe) +"  reported "+ Grid.Lookback.Periods +"x"+ PeriodDescription(grid.timeframe) +" range: "+ DoubleToStr((high-low)/Pip, 1) +" pip", ERS_HISTORY_UPDATE);
    }
 
    double barRange  = (high-low) / Pip;
@@ -670,7 +689,7 @@ int ShowStatus(int error=NO_ERROR) {
    string str.status;
 
    if      (__STATUS_OFF)                     str.status = StringConcatenate(" switched OFF  [", ErrorDescription(__STATUS_OFF.reason), "]");
-   else if (chicken.status == STATUS_PENDING) str.status = " waiting legless";
+   else if (chicken.status == STATUS_PENDING) str.status = " pending";
 
    string msg = StringConcatenate(" ", __NAME__, str.status,                                                                                                              NL,
                                   " --------------",                                                                                                                      NL,
