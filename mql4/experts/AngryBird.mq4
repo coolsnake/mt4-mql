@@ -1,27 +1,28 @@
 /**
  * AngryBird (aka Headless Chicken)
  *
- * A Martingale system with nearly random entry (trades like a headless chicken) and very low profit target. Risk control via
- * drawdown limit. Adding of positions on BarOpen only. The distance between consecutive trades adapts to the past trading
- * range. The lower profit target and drawdown limit the better (and less realistic) the observed results.
- * As market volatility increases so does the probability of major losses.
+ * A (Reverse-)Martingale system with nearly random entry (analyzes the last bar; trades like a headless chicken) and very
+ * low profit target. Risk control via drawdown limit. Adding of positions on BarOpen only. The distance between consecutive
+ * trades adapts to the past trading range. The lower profit target and drawdown limit the better (and less realistic) the
+ * observed results. As market volatility increases so does the probability of major losses.
  *
  * Rewritten and enhanced version of "AngryBird EA" (see https://www.mql5.com/en/code/12872) wich itself is a remake of
  * "Ilan 1.6 Dynamic" (see https://www.mql5.com/en/code/12220). The first checked-in version matches the original sources.
  *
  *
- * Change log:
- * -----------
+ * Changes:
+ * --------
  *  - Removed RSI entry filter as it has no statistical edge but only reduces opportunities.
  *  - Removed CCI stop as the drawdown limit is a better stop condition.
- *  - Added explicit grid size limits (parameters "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
- *  - Added parameter "Start.Direction" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
- *  - Added parameters "TakeProfit.Continue" and "StopLoss.Continue" to put the chicken to rest after TakeProfit or StopLoss
- *    are hit. Enough hip-hop.
- *  - Added parameter "Lots.StartVola.Percent" for volitility based lotsize calculation based on account balance and weekly
- *    instrument volatility. Can also be used for compounding.
- *  - If TakeProfit.Continue or StopLoss.Continue are set to FALSE the status display will freeze and keep the current status
- *    for inspection once the sequence has been finished.
+ *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
+ *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
+ *  - Added parameter "Trade.NonStop" to put the chicken to rest after TakeProfit or StopLoss are hit. Enough hip-hop.
+ *  - If Trade.NonStop is set to FALSE the status display will freeze and keep the last status for inspection once a sequence
+ *    has been finished.
+ *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
+ *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
+ *  - Added parameter "Lots.StartVola" for lotsize calculation based on account balance and instrument volatility. Can also
+ *    be used for compounding.
  */
 #include <stddefine.mqh>
 int   __INIT_FLAGS__[];
@@ -29,20 +30,19 @@ int __DEINIT_FLAGS__[];
 
 ////////////////////////////////////////////////////// Configuration ////////////////////////////////////////////////////////
 
-extern string Start.Mode             = "Long | Short | Headless | Legless* | Auto";
-extern int    MaxPositions           = 0;          // was "MaxTrades = 10"
+extern string Trade.StartMode       = "Long | Short | Headless | Legless* | Auto";
+extern bool   Trade.NonStop         = false;       // whether or not to stop after StopLoss or Takeprofit are hit
+extern bool   Trade.Reverse         = false;       // whether or not to enable Reverse-Martingale mode
 
 extern double Lots.StartSize         = 0;          // fix lotsize or 0 = dynamic lotsize using Lots.StartVola
 extern int    Lots.StartVola.Percent = 30;         // expected weekly equity volatility, see CalculateLotSize()
 extern double Lots.Multiplier        = 1.4;        // was 2
 
 extern double TakeProfit.Pips        = 2;
-extern bool   TakeProfit.Continue    = false;      // whether or not to continue after TakeProfit is hit
-
 extern int    StopLoss.Percent       = 20;
-extern bool   StopLoss.Continue      = false;      // whether or not to continue after StopLoss is hit
-extern bool   StopLoss.ShowLevels    = false;      // display the extrapolated StopLoss levels
+extern bool   StopLoss.ShowLevels    = false;      // display extrapolated StopLoss levels
 
+extern int    Grid.MaxLevels         = 0;          // 0 = no limit (was "MaxTrades = 10")
 extern double Grid.Min.Pips          = 3.0;        // was "DefaultPips/DEL = 0.4"
 extern double Grid.Max.Pips          = 0;          // was "DefaultPips*DEL = 3.6"
 extern bool   Grid.Contractable      = false;      // whether or not the grid is allowed to contract (was TRUE)
@@ -163,8 +163,8 @@ int onTick() {
       return(last_error);
 
 
-   // stop adding more positions once MaxPositions has been reached
-   if (MaxPositions && grid.level >= MaxPositions)
+   // stop adding more positions once Grid.MaxLevels has been reached
+   if (Grid.MaxLevels && grid.level >= Grid.MaxLevels)
       return(last_error);
 
 
@@ -409,7 +409,7 @@ bool CheckOpenOrders() {
 
    log("CheckOpenOrders(1)  TP hit:  level="+ position.level +"  upip="+ DoubleToStr(position.plUPip, 1) +"  upipMax="+ DoubleToStr(position.plUPipMax, 1) +"  upipMin="+ DoubleToStr(position.plUPipMin, 1));
 
-   if (TakeProfit.Continue)
+   if (Trade.NonStop)
       return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING));
 
    __STATUS_OFF        = true;
@@ -439,7 +439,7 @@ bool CheckDrawdown() {
 
    ClosePositions();
 
-   if (StopLoss.Continue)
+   if (Trade.NonStop)
       return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING));
 
    __STATUS_OFF        = true;
@@ -801,19 +801,19 @@ bool ShowStopLossLevel() {
  * @return string
  */
 string InputsToStr() {
-   static string ss.Start.Mode;             string s.Start.Mode             = "Start.Mode="            + DoubleQuoteStr(Start.Mode)                +"; ";
+   static string ss.Trade.StartMode;        string s.Trade.StartMode        = "Trade.StartMode="       + DoubleQuoteStr(Trade.StartMode)           +"; ";
+   static string ss.Trade.NonStop;          string s.Trade.NonStop          = "Trade.NonStop="         + BoolToStr(Trade.NonStop)                  +"; ";
+   static string ss.Trade.Reverse;          string s.Trade.Reverse          = "Trade.Reverse="         + BoolToStr(Trade.Reverse)                  +"; ";
 
    static string ss.Lots.StartSize;         string s.Lots.StartSize         = "Lots.StartSize="        + NumberToStr(Lots.StartSize, ".1+")        +"; ";
    static string ss.Lots.StartVola.Percent; string s.Lots.StartVola.Percent = "Lots.StartVola.Percent="+ Lots.StartVola.Percent                    +"; ";
    static string ss.Lots.Multiplier;        string s.Lots.Multiplier        = "Lots.Multiplier="       + NumberToStr(Lots.Multiplier, ".1+")       +"; ";
 
    static string ss.TakeProfit.Pips;        string s.TakeProfit.Pips        = "TakeProfit.Pips="       + NumberToStr(TakeProfit.Pips, ".1+")       +"; ";
-   static string ss.TakeProfit.Continue;    string s.TakeProfit.Continue    = "TakeProfit.Continue="   + BoolToStr(TakeProfit.Continue)            +"; ";
-
    static string ss.StopLoss.Percent;       string s.StopLoss.Percent       = "StopLoss.Percent="      + StopLoss.Percent                          +"; ";
-   static string ss.StopLoss.Continue;      string s.StopLoss.Continue      = "StopLoss.Continue="     + BoolToStr(StopLoss.Continue)              +"; ";
    static string ss.StopLoss.ShowLevels;    string s.StopLoss.ShowLevels    = "StopLoss.ShowLevels="   + BoolToStr(StopLoss.ShowLevels)            +"; ";
 
+   static string ss.Grid.MaxLevels;         string s.Grid.MaxLevels         = "Grid.MaxLevels="        + Grid.MaxLevels                            +"; ";
    static string ss.Grid.Min.Pips;          string s.Grid.Min.Pips          = "Grid.Min.Pips="         + NumberToStr(Grid.Min.Pips, ".1+")         +"; ";
    static string ss.Grid.Max.Pips;          string s.Grid.Max.Pips          = "Grid.Max.Pips="         + NumberToStr(Grid.Max.Pips, ".1+")         +"; ";
    static string ss.Grid.Contractable;      string s.Grid.Contractable      = "Grid.Contractable="     + BoolToStr(Grid.Contractable)              +"; ";
@@ -829,19 +829,19 @@ string InputsToStr() {
       // all input
       result = StringConcatenate("input: ",
 
-                                 s.Start.Mode,
+                                 s.Trade.StartMode,
+                                 s.Trade.NonStop,
+                                 s.Trade.Reverse,
 
                                  s.Lots.StartSize,
                                  s.Lots.StartVola.Percent,
                                  s.Lots.Multiplier,
 
                                  s.TakeProfit.Pips,
-                                 s.TakeProfit.Continue,
-
                                  s.StopLoss.Percent,
-                                 s.StopLoss.Continue,
                                  s.StopLoss.ShowLevels,
 
+                                 s.Grid.MaxLevels,
                                  s.Grid.Min.Pips,
                                  s.Grid.Max.Pips,
                                  s.Grid.Contractable,
@@ -855,19 +855,19 @@ string InputsToStr() {
       // modified input
       result = StringConcatenate("modified input: ",
 
-                                 ifString(s.Start.Mode             == ss.Start.Mode,             "", s.Start.Mode            ),
+                                 ifString(s.Trade.StartMode        == ss.Trade.StartMode,        "", s.Trade.StartMode       ),
+                                 ifString(s.Trade.NonStop          == ss.Trade.NonStop,          "", s.Trade.NonStop         ),
+                                 ifString(s.Trade.Reverse          == ss.Trade.Reverse,          "", s.Trade.Reverse         ),
 
                                  ifString(s.Lots.StartSize         == ss.Lots.StartSize,         "", s.Lots.StartSize        ),
                                  ifString(s.Lots.StartVola.Percent == ss.Lots.StartVola.Percent, "", s.Lots.StartVola.Percent),
                                  ifString(s.Lots.Multiplier        == ss.Lots.Multiplier,        "", s.Lots.Multiplier       ),
 
                                  ifString(s.TakeProfit.Pips        == ss.TakeProfit.Pips,        "", s.TakeProfit.Pips       ),
-                                 ifString(s.TakeProfit.Continue    == ss.TakeProfit.Continue,    "", s.TakeProfit.Continue   ),
-
                                  ifString(s.StopLoss.Percent       == ss.StopLoss.Percent,       "", s.StopLoss.Percent      ),
-                                 ifString(s.StopLoss.Continue      == ss.StopLoss.Continue,      "", s.StopLoss.Continue     ),
                                  ifString(s.StopLoss.ShowLevels    == ss.StopLoss.ShowLevels,    "", s.StopLoss.ShowLevels   ),
 
+                                 ifString(s.Grid.MaxLevels         == ss.Grid.MaxLevels,         "", s.Grid.MaxLevels        ),
                                  ifString(s.Grid.Min.Pips          == ss.Grid.Min.Pips,          "", s.Grid.Min.Pips         ),
                                  ifString(s.Grid.Max.Pips          == ss.Grid.Max.Pips,          "", s.Grid.Max.Pips         ),
                                  ifString(s.Grid.Contractable      == ss.Grid.Contractable,      "", s.Grid.Contractable     ),
@@ -878,19 +878,19 @@ string InputsToStr() {
                                  ifString(s.Exit.Trail.Start.Pips  == ss.Exit.Trail.Start.Pips,  "", s.Exit.Trail.Start.Pips ));
    }
 
-   ss.Start.Mode             = s.Start.Mode;
+   ss.Trade.StartMode        = s.Trade.StartMode;
+   ss.Trade.NonStop          = s.Trade.NonStop;
+   ss.Trade.Reverse          = s.Trade.Reverse;
 
    ss.Lots.StartSize         = s.Lots.StartSize;
    ss.Lots.StartVola.Percent = s.Lots.StartVola.Percent;
    ss.Lots.Multiplier        = s.Lots.Multiplier;
 
    ss.TakeProfit.Pips        = s.TakeProfit.Pips;
-   ss.TakeProfit.Continue    = s.TakeProfit.Continue;
-
    ss.StopLoss.Percent       = s.StopLoss.Percent;
-   ss.StopLoss.Continue      = s.StopLoss.Continue;
    ss.StopLoss.ShowLevels    = s.StopLoss.ShowLevels;
 
+   ss.Grid.MaxLevels         = s.Grid.MaxLevels;
    ss.Grid.Min.Pips          = s.Grid.Min.Pips;
    ss.Grid.Max.Pips          = s.Grid.Max.Pips;
    ss.Grid.Contractable      = s.Grid.Contractable;

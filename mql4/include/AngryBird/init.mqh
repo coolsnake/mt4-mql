@@ -18,10 +18,10 @@ int onInit_User() {
    if (!sequenceId) {
       ResetStoredStatus();
       ValidateConfig(); if (__STATUS_OFF) return(last_error);
-      // TODO: if Start.Mode = "Auto" read/validate input params from .set file
+      // TODO: if Trade.StartMode = "Auto" read/validate input params from .set file
 
       // init new sequence
-      string startMode      = StringToLower(Start.Mode);
+      string startMode      = StringToLower(Trade.StartMode);
       string startDirection = ifString(startMode=="headless" || startMode=="legless", "auto", startMode);
       int    status         = ifInt   (startMode=="legless", STATUS_PENDING, STATUS_STARTING);
       InitSequenceStatus(startMode, startDirection, status);
@@ -39,12 +39,12 @@ int onInit_User() {
    else {
       if (!ConfirmManageSequence(sequenceId)) return(SetLastError(ERR_CANCELLED_BY_USER));
       ValidateConfig(); if (__STATUS_OFF)     return(last_error);
-      // TODO: if Start.Mode = "Auto" read/validate input params from .set file
+      // TODO: if Trade.StartMode = "Auto" read/validate input params from .set file
       RestoreRuntimeStatus(sequenceId);                  // for the rare case the EA was manually removed and gets re-attached
       ReadOpenPositions();                               // read/synchronize positions with restored runtime data
 
       // init remaining uninitialized sequence vars
-      if (!StringLen(chicken.mode))           chicken.mode        = StringToLower(Start.Mode);
+      if (!StringLen(chicken.mode))           chicken.mode        = StringToLower(Trade.StartMode);
       if (chicken.status == STATUS_UNDEFINED) chicken.status      = STATUS_PROGRESSING;
       if (!StringLen(grid.startDirection))    grid.startDirection = ifString(chicken.mode=="headless" || chicken.mode=="legless", "auto", chicken.mode);
 
@@ -127,19 +127,19 @@ bool ValidateConfig() {
    if (__STATUS_OFF)
       return(false);
 
-   // Start.Mode
-   string elems[], sValue = StringToLower(Start.Mode);
+   // Trade.StartMode
+   string elems[], sValue = StringToLower(Trade.StartMode);
    if (Explode(sValue, "*", elems, 2) > 1) {
       int size = Explode(elems[0], "|", elems, NULL);
       sValue = elems[size-1];
    }
    sValue = StringTrim(sValue);
-   if      (StringStartsWith("long",     sValue) && StringLen(sValue) > 1) Start.Mode = "long";
-   else if (StringStartsWith("short",    sValue))                          Start.Mode = "short";
-   else if (StringStartsWith("headless", sValue))                          Start.Mode = "headless";
-   else if (StringStartsWith("legless",  sValue) && StringLen(sValue) > 1) Start.Mode = "legless";
-   else if (StringStartsWith("auto",     sValue))                          Start.Mode = "auto";
-   else                                                return(catch("ValidateConfig(1)  Invalid input parameter Start.Mode = "+ DoubleQuoteStr(Start.Mode), ERR_INVALID_INPUT_PARAMETER));
+   if      (StringStartsWith("long",     sValue) && StringLen(sValue) > 1) Trade.StartMode = "long";
+   else if (StringStartsWith("short",    sValue))                          Trade.StartMode = "short";
+   else if (StringStartsWith("headless", sValue))                          Trade.StartMode = "headless";
+   else if (StringStartsWith("legless",  sValue) && StringLen(sValue) > 1) Trade.StartMode = "legless";
+   else if (StringStartsWith("auto",     sValue))                          Trade.StartMode = "auto";
+   else                                                return(catch("ValidateConfig(1)  Invalid input parameter Trade.StartMode = "+ DoubleQuoteStr(Trade.StartMode), ERR_INVALID_INPUT_PARAMETER));
 
    // Lots.StartSize
    if (Lots.StartSize < 0)                             return(catch("ValidateConfig(2)  Invalid input parameter Lots.StartSize = "+ NumberToStr(Lots.StartSize, ".1+"), ERR_INVALID_INPUT_PARAMETER));
@@ -158,30 +158,33 @@ bool ValidateConfig() {
    if (StopLoss.Percent <=   0)                        return(catch("ValidateConfig(7)  Invalid input parameter StopLoss.Percent = "+ StopLoss.Percent, ERR_INVALID_INPUT_PARAMETER));
    if (StopLoss.Percent >= 100)                        return(catch("ValidateConfig(8)  Invalid input parameter StopLoss.Percent = "+ StopLoss.Percent, ERR_INVALID_INPUT_PARAMETER));
 
+   // Grid.MaxLevels
+   if (Grid.MaxLevels < 0)                             return(catch("ValidateConfig(9)  Invalid input parameter Grid.MaxLevels = "+ Grid.MaxLevels, ERR_INVALID_INPUT_PARAMETER));
+
    // Grid.Min.Pips
-   if (Grid.Min.Pips <= 0)                             return(catch("ValidateConfig(9)  Invalid input parameter Grid.Min.Pips = "+ NumberToStr(Grid.Min.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
-   if (MathModFix(Grid.Min.Pips, 0.1) != 0)            return(catch("ValidateConfig(10)  Invalid input parameter Grid.Min.Pips = "+ NumberToStr(Grid.Min.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
+   if (Grid.Min.Pips <= 0)                             return(catch("ValidateConfig(10)  Invalid input parameter Grid.Min.Pips = "+ NumberToStr(Grid.Min.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
+   if (MathModFix(Grid.Min.Pips, 0.1) != 0)            return(catch("ValidateConfig(11)  Invalid input parameter Grid.Min.Pips = "+ NumberToStr(Grid.Min.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
 
    // Grid.Max.Pips
-   if (Grid.Max.Pips < 0)                              return(catch("ValidateConfig(11)  Invalid input parameter Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
-   if (MathModFix(Grid.Max.Pips, 0.1) != 0)            return(catch("ValidateConfig(12)  Invalid input parameter Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
-   if (Grid.Max.Pips && Grid.Max.Pips > Grid.Max.Pips) return(catch("ValidateConfig(13)  Invalid input parameters Grid.Min.Pips / Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+") +" / "+ NumberToStr(Grid.Max.Pips, ".1+") +" (mis-match)", ERR_INVALID_INPUT_PARAMETER));
+   if (Grid.Max.Pips < 0)                              return(catch("ValidateConfig(12)  Invalid input parameter Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
+   if (MathModFix(Grid.Max.Pips, 0.1) != 0)            return(catch("ValidateConfig(13)  Invalid input parameter Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
+   if (Grid.Max.Pips && Grid.Max.Pips > Grid.Max.Pips) return(catch("ValidateConfig(14)  Invalid input parameters Grid.Min.Pips / Grid.Max.Pips = "+ NumberToStr(Grid.Max.Pips, ".1+") +" / "+ NumberToStr(Grid.Max.Pips, ".1+") +" (mis-match)", ERR_INVALID_INPUT_PARAMETER));
 
    // Grid.Lookback.Periods
-   if (Grid.Lookback.Periods < 1)                      return(catch("ValidateConfig(14)  Invalid input parameter Grid.Lookback.Periods = "+ Grid.Lookback.Periods, ERR_INVALID_INPUT_PARAMETER));
+   if (Grid.Lookback.Periods < 1)                      return(catch("ValidateConfig(15)  Invalid input parameter Grid.Lookback.Periods = "+ Grid.Lookback.Periods, ERR_INVALID_INPUT_PARAMETER));
 
    // Grid.Lookback.Divider
-   if (Grid.Lookback.Divider < 1)                      return(catch("ValidateConfig(15)  Invalid input parameter Grid.Lookback.Divider = "+ Grid.Lookback.Divider, ERR_INVALID_INPUT_PARAMETER));
+   if (Grid.Lookback.Divider < 1)                      return(catch("ValidateConfig(16)  Invalid input parameter Grid.Lookback.Divider = "+ Grid.Lookback.Divider, ERR_INVALID_INPUT_PARAMETER));
 
    // Exit.Trail.Pips
-   if (Exit.Trail.Pips < 0)                            return(catch("ValidateConfig(16)  Invalid input parameter Exit.Trail.Pips = "+ NumberToStr(Exit.Trail.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
-   if (MathModFix(Exit.Trail.Pips, 0.1) != 0)          return(catch("ValidateConfig(17)  Invalid input parameter Exit.Trail.Pips = "+ NumberToStr(Exit.Trail.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
+   if (Exit.Trail.Pips < 0)                            return(catch("ValidateConfig(17)  Invalid input parameter Exit.Trail.Pips = "+ NumberToStr(Exit.Trail.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
+   if (MathModFix(Exit.Trail.Pips, 0.1) != 0)          return(catch("ValidateConfig(18)  Invalid input parameter Exit.Trail.Pips = "+ NumberToStr(Exit.Trail.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
 
    // Exit.Trail.Start.Pips
-   if (Exit.Trail.Start.Pips < 0)                      return(catch("ValidateConfig(18)  Invalid input parameter Exit.Trail.Start.Pips = "+ NumberToStr(Exit.Trail.Start.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
-   if (MathModFix(Exit.Trail.Start.Pips, 0.1) != 0)    return(catch("ValidateConfig(19)  Invalid input parameter Exit.Trail.Start.Pips = "+ NumberToStr(Exit.Trail.Start.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
+   if (Exit.Trail.Start.Pips < 0)                      return(catch("ValidateConfig(19)  Invalid input parameter Exit.Trail.Start.Pips = "+ NumberToStr(Exit.Trail.Start.Pips, ".1+"), ERR_INVALID_INPUT_PARAMETER));
+   if (MathModFix(Exit.Trail.Start.Pips, 0.1) != 0)    return(catch("ValidateConfig(20)  Invalid input parameter Exit.Trail.Start.Pips = "+ NumberToStr(Exit.Trail.Start.Pips, ".1+") +" (not a subpip multiple)", ERR_INVALID_INPUT_PARAMETER));
 
-   return(!catch("ValidateConfig(20)"));
+   return(!catch("ValidateConfig(21)"));
 }
 
 
@@ -503,15 +506,16 @@ bool ResetStoredStatus() {
    Chart.DeleteValue(__NAME__ +".id");
 
    // input parameters
-   Chart.DeleteValue(__NAME__ +".input.Start.Mode"               );
+   Chart.DeleteValue(__NAME__ +".input.Trade.StartMode"          );
+   Chart.DeleteValue(__NAME__ +".input.Trade.NonStop"            );
+   Chart.DeleteValue(__NAME__ +".input.Trade.Reverse"            );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartSize"           );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartVola.Percent"   );
    Chart.DeleteValue(__NAME__ +".input.Lots.Multiplier"          );
    Chart.DeleteValue(__NAME__ +".input.TakeProfit.Pips"          );
-   Chart.DeleteValue(__NAME__ +".input.TakeProfit.Continue"      );
    Chart.DeleteValue(__NAME__ +".input.StopLoss.Percent"         );
-   Chart.DeleteValue(__NAME__ +".input.StopLoss.Continue"        );
    Chart.DeleteValue(__NAME__ +".input.StopLoss.ShowLevels"      );
+   Chart.DeleteValue(__NAME__ +".input.Grid.MaxLevels"           );
    Chart.DeleteValue(__NAME__ +".input.Grid.Min.Pips"            );
    Chart.DeleteValue(__NAME__ +".input.Grid.Max.Pips"            );
    Chart.DeleteValue(__NAME__ +".input.Grid.Contractable"        );
