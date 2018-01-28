@@ -273,3 +273,64 @@ double SetPositionPlPctMax(double value) {
    }
    return(value);
 }
+
+
+/**
+ * Set position.cumPlPct and update its string representation.
+ *
+ * @param  double
+ *
+ * @return double - the same value
+ */
+double SetPositionCumPlPct(double value) {
+   if (position.cumPlPct != value) {
+      position.cumPlPct = value;
+
+      if (__CHART) {
+         if (value == EMPTY_VALUE) str.position.cumPlPct = "-";
+         else                      str.position.cumPlPct = DoubleToStr(value, 2) +" %";
+      }
+   }
+   return(value);
+}
+
+
+/**
+ * Set position.cumPlPctMin and update its string representation.
+ *
+ * @param  double
+ *
+ * @return double - the same value
+ */
+double SetPositionCumPlPctMin(double value) {
+   if (position.cumPlPctMin != value) {
+      position.cumPlPctMin = value;
+
+      if (__CHART) {
+         if (value == EMPTY_VALUE) str.position.cumPlPctMin = "-";
+         else                      str.position.cumPlPctMin = DoubleToStr(value, 2) +" %";
+      }
+   }
+   return(value);
+}
+
+
+/**
+ * Set position.cumPlPctMax and update its string representation.
+ *
+ * @param  double
+ *
+ * @return double - the same value
+ */
+double SetPositionCumPlPctMax(double value) {
+   if (position.cumPlPctMax != value) {
+      position.cumPlPctMax = value;
+
+      if (__CHART) {
+         if (value == EMPTY_VALUE) str.position.cumPlPctMax = "-";
+         else                      str.position.cumPlPctMax = DoubleToStr(value, 2) +" %";
+      }
+   }
+   return(value);
+}
+

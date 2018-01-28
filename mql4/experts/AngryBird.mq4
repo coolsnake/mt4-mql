@@ -1,28 +1,28 @@
 /**
  * AngryBird (aka Headless Chicken)
  *
- * A (Reverse-)Martingale system with nearly random entry (analyzes the last bar; trades like a headless chicken) and very
- * low profit target. Risk control via drawdown limit. Adding of positions on BarOpen only. The distance between consecutive
- * trades adapts to the past trading range. The lower profit target and drawdown limit the better (and less realistic) the
- * observed results. As market volatility increases so does the probability of major losses.
+ * A Martingale system with nearly random entry (analyzes the last bar, trades like a headless chicken) and very low profit
+ * target. Risk control via drawdown limit. Adding of positions on BarOpen only. The distance between consecutive trades
+ * adapts to the past trading range. The lower profit target and drawdown limit the better (and less realistic) the observed
+ * results. As market volatility increases so does the probability of major losses.
  *
  * Rewritten and enhanced version of "AngryBird EA" (see https://www.mql5.com/en/code/12872) wich itself is a remake of
- * "Ilan 1.6 Dynamic" (see https://www.mql5.com/en/code/12220). The first checked-in version matches the original sources.
+ * "Ilan 1.6 Dynamic" (see https://www.mql5.com/en/code/12220). The initial commit matches the original sources.
  *
  *
  * Changes:
  * --------
+ *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
+ *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
  *  - Removed RSI entry filter as it has no statistical edge but only reduces opportunities.
  *  - Removed CCI stop as the drawdown limit is a better stop condition.
  *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
  *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
  *  - Added parameter "Trade.NonStop" to put the chicken to rest after TakeProfit or StopLoss are hit. Enough hip-hop.
- *  - If Trade.NonStop is set to FALSE the status display will freeze and keep the last status for inspection once a sequence
- *    has been finished.
- *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
- *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
- *  - Added parameter "Lots.StartVola" for lotsize calculation based on account balance and instrument volatility. Can also
- *    be used for compounding.
+ *  - If Trade.NonStop = Off the status display will freeze and keep the last status for inspection once a sequence has been
+ *    finished.
+ *  - Added parameter "Lots.StartVola" for lotsize calculation based on account size and instrument volatility. Can also be
+ *    used for compounding.
  */
 #include <stddefine.mqh>
 int   __INIT_FLAGS__[];
@@ -81,7 +81,6 @@ double lots.startSize;                       // actual starting lot size (can di
 int    lots.startVola;                       // resulting starting vola (can differ from input Lots.StartVola)
 
 // grid management
-int    grid.timeframe = PERIOD_M1;           // timeframe used for grid size calculation
 string grid.startDirection;
 int    grid.level;                           // current grid level: >= 0
 double grid.minSize;                         // enforced minimum grid size in pip (can change over time)
@@ -97,17 +96,23 @@ int    position.level;                       // current position level: positive
 double position.size;                        // current total position size
 double position.avgPrice;                    // current average position price
 double position.slPrice;                     // StopLoss price of the current position at the current grid level
-double position.startEquity;                 // equity in account currency at sequence start
-double position.maxDrawdown;                 // max. drawdown in account currency
-double position.plPip     = EMPTY_VALUE;     // current PL in pip
-double position.plPipMin  = EMPTY_VALUE;     // min. PL in pip
-double position.plPipMax  = EMPTY_VALUE;     // max. PL in pip
-double position.plUPip    = EMPTY_VALUE;     // current PL in unit pip
-double position.plUPipMin = EMPTY_VALUE;     // min. PL in unit pip
-double position.plUPipMax = EMPTY_VALUE;     // max. PL in unit pip
-double position.plPct     = EMPTY_VALUE;     // current PL in percent
-double position.plPctMin  = EMPTY_VALUE;     // min. PL in percent
-double position.plPctMax  = EMPTY_VALUE;     // max. PL in percent
+double position.startEquity;                 // equity in account currency at the current sequence start
+
+double position.plPip       = EMPTY_VALUE;   // current PL in pip
+double position.plPipMin    = EMPTY_VALUE;   // min. PL in pip
+double position.plPipMax    = EMPTY_VALUE;   // max. PL in pip
+double position.plUPip      = EMPTY_VALUE;   // current PL in unit pip
+double position.plUPipMin   = EMPTY_VALUE;   // min. PL in unit pip
+double position.plUPipMax   = EMPTY_VALUE;   // max. PL in unit pip
+double position.plPct       = EMPTY_VALUE;   // current PL in percent
+double position.plPctMin    = EMPTY_VALUE;   // min. PL in percent
+double position.plPctMax    = EMPTY_VALUE;   // max. PL in percent
+
+double position.cumStartEquity;              // equity in account currency at the first sequence start (if Trade.NonStop=On)
+double position.cumPl       = EMPTY_VALUE;   // PL in account currency since the first sequence start  (if Trade.NonStop=On)
+double position.cumPlPct    = EMPTY_VALUE;   // PL in percent since the first sequence start           (if Trade.NonStop=On)
+double position.cumPlPctMin = EMPTY_VALUE;   // min. PL in percent since the first sequence start      (if Trade.NonStop=On)
+double position.cumPlPctMax = EMPTY_VALUE;   // max. PL in percent since the first sequence start      (if Trade.NonStop=On)
 
 bool   exit.trailStop;
 double exit.trailLimitPrice;                 // current price limit to start trailing stops
@@ -118,23 +123,26 @@ int    os.magicNumber = 2222;
 double os.slippage    = 0.1;
 
 // cache variables to speed-up execution of ShowStatus()
-string str.lots.startSize     = "-";
+string str.lots.startSize       = "-";
 
-string str.grid.minSize       = "-";
-string str.grid.marketSize    = "-";
+string str.grid.minSize         = "-";
+string str.grid.marketSize      = "-";
 
-string str.position.slPrice   = "-";
-string str.position.tpPip     = "-";
-string str.position.plPip     = "-";
-string str.position.plPipMin  = "-";
-string str.position.plPipMax  = "-";
-string str.position.plUPip    = "-";
-string str.position.plUPipMin = "-";
-string str.position.plUPipMax = "-";
-string str.position.plPct     = "-";
-string str.position.plPctMin  = "-";
-string str.position.plPctMax  = "-";
+string str.position.slPrice     = "-";
+string str.position.tpPip       = "-";
+string str.position.plPip       = "-";
+string str.position.plPipMin    = "-";
+string str.position.plPipMax    = "-";
+string str.position.plUPip      = "-";
+string str.position.plUPipMin   = "-";
+string str.position.plUPipMax   = "-";
+string str.position.plPct       = "-";
+string str.position.plPctMin    = "-";
+string str.position.plPctMax    = "-";
 
+string str.position.cumPlPct    = "-";
+string str.position.cumPlPctMin = "-";
+string str.position.cumPlPctMax = "-";
 
 #include <AngryBird/functions.mqh>
 #include <AngryBird/init.mqh>
@@ -170,7 +178,7 @@ int onTick() {
 
    // check entry conditions
    if (grid.startDirection == "auto") {
-      if (EventListener.BarOpen(grid.timeframe)) {
+      if (EventListener.BarOpen(PERIOD_M1)) {
          if (!position.level) {
             if      (Close[1] > Close[2]) OpenPosition(OP_BUY);
             else if (Close[1] < Close[2]) OpenPosition(OP_SELL);
@@ -209,14 +217,14 @@ double UpdateGridSize() {
    if (Tick == lastTick)                                       // prevent multiple calculations per tick
       return(lastResult);
 
-   double high = iHigh(NULL, grid.timeframe, iHighest(NULL, grid.timeframe, MODE_HIGH, Grid.Lookback.Periods, 1));
-   double low  =  iLow(NULL, grid.timeframe,  iLowest(NULL, grid.timeframe, MODE_LOW,  Grid.Lookback.Periods, 1));
+   double high = iHigh(NULL, PERIOD_M1, iHighest(NULL, PERIOD_M1, MODE_HIGH, Grid.Lookback.Periods, 1));
+   double low  =  iLow(NULL, PERIOD_M1,  iLowest(NULL, PERIOD_M1, MODE_LOW,  Grid.Lookback.Periods, 1));
 
    int error = GetLastError();
    if (error != NO_ERROR) {
       if (error != ERS_HISTORY_UPDATE)
          return(!catch("UpdateGridSize(1)", error));
-      warn("UpdateGridSize(2)  "+ PeriodDescription(grid.timeframe) +" => ERS_HISTORY_UPDATE, reported "+ Grid.Lookback.Periods +"x"+ PeriodDescription(grid.timeframe) +" range: "+ DoubleToStr((high-low)/Pip, 1) +" pip", error);
+      warn("UpdateGridSize(2)  ERS_HISTORY_UPDATE, reported "+ Grid.Lookback.Periods +"xM1 range: "+ DoubleToStr((high-low)/Pip, 1) +" pip", error);
    }
 
    double barRange  = (high-low) / Pip;
@@ -287,7 +295,7 @@ double CalculateLotsize(int level) {
          // expected weekly range: maximum of ATR(14xW1), previous TrueRange(W1) and current TrueRange(W1)
          double a = @ATR(NULL, PERIOD_W1, 14, 1); if (!a) return(_NULL(debug("CalculateLotsize(4)  W1", last_error)));
          double b = @ATR(NULL, PERIOD_W1,  1, 1); if (!b) return(_NULL(debug("CalculateLotsize(5)  W1", last_error)));
-         double c = @ATR(NULL, PERIOD_W1,  1, 0); if (!c) return(_NULL(debug("CalculateLotsize(6)  W", last_error)));
+         double c = @ATR(NULL, PERIOD_W1,  1, 0); if (!c) return(_NULL(debug("CalculateLotsize(6)  W1", last_error)));
          double expectedRange    = MathMax(a, MathMax(b, c));
          double expectedRangePct = expectedRange/Close[0] * 100;
 
@@ -334,14 +342,16 @@ double CalculateLotsize(int level) {
 bool OpenPosition(int type) {
    if (__STATUS_OFF) return(false);
 
-   if (InitReason() != IR_USER) {
-      if (Tick <= 1) if (!ConfirmFirstTickTrade("OpenPosition()", "Do you really want to submit a Market "+ OrderTypeDescription(type) +" order now?"))
-         return(!SetLastError(ERR_CANCELLED_BY_USER));
-   }
+   if (InitReason()!=IR_USER) /*&&*/ if (!ConfirmFirstTickTrade("OpenPosition()", "Do you really want to submit a Market "+ OrderTypeDescription(type) +" order now?"))
+      return(!SetLastError(ERR_CANCELLED_BY_USER));
 
    // reset the start lotsize of a new sequence to trigger re-calculation and thus provide compounding (if configured)
-   if (!grid.level)
+   if (!grid.level) {
+      position.startEquity = NormalizeDouble(AccountEquity() - AccountCredit(), 2);
+      if (!position.cumStartEquity)
+         position.cumStartEquity = position.startEquity;
       SetLotsStartSize(NULL);
+   }
 
    string   symbol      = Symbol();
    double   price       = NULL;
@@ -355,7 +365,7 @@ bool OpenPosition(int type) {
    int      oe[]; InitializeByteBuffer(oe, ORDER_EXECUTION.size);
 
    int ticket = OrderSendEx(symbol, type, lots, price, os.slippage, stopLoss, takeProfit, comment, os.magicNumber, expires, markerColor, oeFlags, oe);
-   if (IsEmpty(ticket)) return(false);
+   if (ticket == -1) return(false);
 
    // update levels and ticket data
    grid.level++;                                                  // update grid.level
@@ -379,15 +389,10 @@ bool OpenPosition(int type) {
          return(false);
       OrderModify(OrderTicket(), NULL, OrderStopLoss(), tpPrice, NULL, Blue);
    }
-   if (exit.trailStop)
-      exit.trailLimitPrice = NormalizeDouble(avgPrice + direction * Exit.Trail.Start.Pips*Pips, Digits);
-
-   if (grid.level == 1) {
-      position.startEquity = NormalizeDouble(AccountEquity() - AccountCredit(), 2);
-      position.maxDrawdown = NormalizeDouble(position.startEquity * StopLoss.Percent/100, 2);
-   }
-   double maxDrawdownPips = position.maxDrawdown / PipValue(position.size);
-   SetPositionSlPrice(NormalizeDouble(avgPrice - direction * maxDrawdownPips*Pips, Digits));
+   double drawdown      = position.startEquity * StopLoss.Percent/100;
+   double drawdownPips  = drawdown / PipValue(position.size);
+   SetPositionSlPrice(    NormalizeDouble(avgPrice - direction *          drawdownPips*Pips, Digits));
+   exit.trailLimitPrice = NormalizeDouble(avgPrice + direction * Exit.Trail.Start.Pips*Pips, Digits);
 
    UpdateStatus();
    return(!catch("OpenPosition(1)"));
@@ -410,7 +415,7 @@ bool CheckOpenOrders() {
    log("CheckOpenOrders(1)  TP hit:  level="+ position.level +"  upip="+ DoubleToStr(position.plUPip, 1) +"  upipMax="+ DoubleToStr(position.plUPipMax, 1) +"  upipMin="+ DoubleToStr(position.plUPipMin, 1));
 
    if (Trade.NonStop)
-      return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING));
+      return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, true));
 
    __STATUS_OFF        = true;
    __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;
@@ -436,11 +441,10 @@ bool CheckDrawdown() {
    }
 
    log("CheckDrawdown(1)  SL("+ StopLoss.Percent +"%) hit:  level="+ position.level +"  upip="+ DoubleToStr(position.plUPip, 1) +"  upipMax="+ DoubleToStr(position.plUPipMax, 1) +"  upipMin="+ DoubleToStr(position.plUPipMin, 1));
-
    ClosePositions();
 
    if (Trade.NonStop)
-      return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING));
+      return(InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, false));
 
    __STATUS_OFF        = true;
    __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;
@@ -455,7 +459,7 @@ void ClosePositions() {
    if (__STATUS_OFF || !grid.level)
       return;
 
-   if (Tick <= 1) if (!ConfirmFirstTickTrade("ClosePositions()", "Do you really want to close all open positions now?"))
+   if (!ConfirmFirstTickTrade("ClosePositions()", "Do you really want to close all open positions now?"))
       return(SetLastError(ERR_CANCELLED_BY_USER));
 
    int oes[][ORDER_EXECUTION.intSize];
@@ -469,9 +473,14 @@ void ClosePositions() {
 /**
  * Reset and initialize all non-constant runtime variables for the next sequence.
  *
+ * @param  string startMode          - "long"|"short"|"headless"|"legless"
+ * @param  string direction          - "long"|"short"|"auto"
+ * @param  int    status             - sequence status
+ * @param  bool   resetCumulatedData - whether or not to reset cumulated data
+ *
  * @return bool - success status
  */
-bool InitSequenceStatus(string startMode, string direction, int status) {
+bool InitSequenceStatus(string startMode, string direction, int status, bool resetCumulatedData) {
    string modes[] = {"long", "short", "headless", "legless"};
    if (!StringInArray(modes, startMode))      return(!catch("InitSequenceStatus(1)  Invalid parameter startMode: "+ DoubleQuoteStr(startMode), ERR_INVALID_PARAMETER));
    string directions[] = {"long", "short", "auto"};
@@ -490,7 +499,6 @@ bool InitSequenceStatus(string startMode, string direction, int status) {
    position.size        = 0;
    position.avgPrice    = 0;
    position.startEquity = 0;
-   position.maxDrawdown = 0;
    SetPositionSlPrice    (0);
    SetPositionTpPip    (TakeProfit.Pips);
    SetPositionPlPip    (EMPTY_VALUE);
@@ -503,10 +511,17 @@ bool InitSequenceStatus(string startMode, string direction, int status) {
    SetPositionPlPctMin (EMPTY_VALUE);
    SetPositionPlPctMax (EMPTY_VALUE);
 
+   if (resetCumulatedData) {
+      position.cumStartEquity = 0;
+      position.cumPl          = 0;
+      SetPositionCumPlPct   (EMPTY_VALUE);
+      SetPositionCumPlPctMin(EMPTY_VALUE);
+      SetPositionCumPlPctMax(EMPTY_VALUE);
+   }
+
    exit.trailStop       = Exit.Trail.Pips > 0;
    exit.trailLimitPrice = 0;
 
- //grid.timeframe                                  // constant
    grid.startDirection = direction;
    grid.level          = 0;
    SetGridMinSize(Grid.Min.Pips);
@@ -526,7 +541,7 @@ bool InitSequenceStatus(string startMode, string direction, int status) {
 /**
  * Trail stops of a profitable trade sequence. Will fail in real life because it trails each order on every tick.
  *
- * @return bool - function success status; not if orders have indeed beeen trailed on the current tick
+ * @return bool - function success status; not if orders indeed have been trailed on the current tick
  */
 void TrailProfits() {
    if (__STATUS_OFF || !grid.level)
@@ -671,7 +686,7 @@ int ShowStatus(int error=NO_ERROR) {
       return(error);
 
    static bool statusBox; if (!statusBox)
-      statusBox = ShowStatus.Box();
+      statusBox = ShowStatusBox();
 
    string str.status;
 
@@ -683,14 +698,18 @@ int ShowStatus(int error=NO_ERROR) {
       if (!lots.startSize)                  CalculateLotsize(1);
    }
 
-   string msg = StringConcatenate(" ", __NAME__, str.status,                                                                                                              NL,
-                                  " --------------",                                                                                                                      NL,
-                                  " Grid level:   ",  grid.level,      "            MarketSize:   ", str.grid.marketSize,  "        MinSize:   ", str.grid.minSize,       NL,
-                                  " StartLots:    ",  str.lots.startSize, "         Vola:   ",       lots.startVola, " %",                                                NL,
-                                  " TP:            ", str.position.tpPip,    "      Stop:   ",       StopLoss.Percent,  " %         SL:   ",      str.position.slPrice,   NL,
-                                  " PL:            ", str.position.plPip,    "      max:    ",       str.position.plPipMax, "       min:    ",    str.position.plPipMin,  NL,
-                                  " PL upip:     ",   str.position.plUPip,    "     max:    ",       str.position.plUPipMax,  "     min:    ",    str.position.plUPipMin, NL,
-                                  " PL %:        ",   str.position.plPct,     "     max:    ",       str.position.plPctMax,  "      min:    ",    str.position.plPctMin,  NL);
+   string msg = StringConcatenate(" ", __NAME__, str.status,                                                                                                               NL,
+                                  " --------------",                                                                                                                       NL,
+                                  " Grid level:    ",  grid.level,      "            MarketSize:   ", str.grid.marketSize,  "        MinSize:   ", str.grid.minSize,       NL,
+                                  " StartLots:     ",  str.lots.startSize, "         Vola:   ",       lots.startVola, " %",                                                NL,
+                                  " TP:             ", str.position.tpPip,    "      Stop:   ",       StopLoss.Percent,  " %         SL:   ",      str.position.slPrice,   NL,
+                                  " PL:             ", str.position.plPip,    "      max:    ",       str.position.plPipMax, "       min:    ",    str.position.plPipMin,  NL,
+                                  " PL upip:      ",   str.position.plUPip,    "     max:    ",       str.position.plUPipMax,  "     min:    ",    str.position.plUPipMin, NL);
+   if (Trade.NonStop)
+     msg = StringConcatenate(msg, " PL % cum:  ",      str.position.plPct,     "     max:    ",       str.position.plPctMax,  "      min:    ",    str.position.plPctMin,  NL);
+   msg =   StringConcatenate(msg, " PL %:         ",   str.position.plPct,     "     max:    ",       str.position.plPctMax,  "      min:    ",    str.position.plPctMin,  NL);
+
+
    // 4 lines margin-top
    Comment(StringConcatenate(NL, NL, NL, NL, msg));
 
@@ -708,7 +727,7 @@ int ShowStatus(int error=NO_ERROR) {
  *
  * @return bool - success status
  */
-bool ShowStatus.Box() {
+bool ShowStatusBox() {
    if (!__CHART)
       return(false);
 
@@ -729,7 +748,7 @@ bool ShowStatus.Box() {
       }
    }
 
-   return(!catch("ShowStatus.Box(1)"));
+   return(!catch("ShowStatusBox(1)"));
 }
 
 

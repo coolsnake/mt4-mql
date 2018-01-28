@@ -54,27 +54,31 @@ bool StoreRuntimeStatus() {
    Chart.StoreDouble(__NAME__ +".input.Exit.Trail.Start.Pips",  Exit.Trail.Start.Pips );
 
    // runtime status
-   Chart.StoreBool  (__NAME__ +".runtime.__STATUS_INVALID_INPUT", __STATUS_INVALID_INPUT);
-   Chart.StoreBool  (__NAME__ +".runtime.__STATUS_OFF",           __STATUS_OFF          );
-   Chart.StoreInt   (__NAME__ +".runtime.__STATUS_OFF.reason",    __STATUS_OFF.reason   );
-   Chart.StoreDouble(__NAME__ +".runtime.lots.calculatedSize",    lots.calculatedSize   );
-   Chart.StoreDouble(__NAME__ +".runtime.lots.startSize",         lots.startSize        );
-   Chart.StoreInt   (__NAME__ +".runtime.lots.startVola",         lots.startVola        );
-   Chart.StoreInt   (__NAME__ +".runtime.grid.level",             grid.level            );
-   Chart.StoreDouble(__NAME__ +".runtime.grid.minSize",           grid.minSize          );
-   Chart.StoreDouble(__NAME__ +".runtime.grid.marketSize",        grid.marketSize       );
-   Chart.StoreDouble(__NAME__ +".runtime.position.startEquity",   position.startEquity  );
-   Chart.StoreDouble(__NAME__ +".runtime.position.maxDrawdown",   position.maxDrawdown  );
-   Chart.StoreDouble(__NAME__ +".runtime.position.slPrice",       position.slPrice      );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPip",         position.plPip        );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPipMin",      position.plPipMin     );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPipMax",      position.plPipMax     );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plUPip",        position.plUPip       );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plUPipMin",     position.plUPipMin    );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plUPipMax",     position.plUPipMax    );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPct",         position.plPct        );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPctMin",      position.plPctMin     );
-   Chart.StoreDouble(__NAME__ +".runtime.position.plPctMax",      position.plPctMax     );
+   Chart.StoreBool  (__NAME__ +".runtime.__STATUS_INVALID_INPUT",  __STATUS_INVALID_INPUT );
+   Chart.StoreBool  (__NAME__ +".runtime.__STATUS_OFF",            __STATUS_OFF           );
+   Chart.StoreInt   (__NAME__ +".runtime.__STATUS_OFF.reason",     __STATUS_OFF.reason    );
+   Chart.StoreDouble(__NAME__ +".runtime.lots.calculatedSize",     lots.calculatedSize    );
+   Chart.StoreDouble(__NAME__ +".runtime.lots.startSize",          lots.startSize         );
+   Chart.StoreInt   (__NAME__ +".runtime.lots.startVola",          lots.startVola         );
+   Chart.StoreInt   (__NAME__ +".runtime.grid.level",              grid.level             );
+   Chart.StoreDouble(__NAME__ +".runtime.grid.minSize",            grid.minSize           );
+   Chart.StoreDouble(__NAME__ +".runtime.grid.marketSize",         grid.marketSize        );
+   Chart.StoreDouble(__NAME__ +".runtime.position.startEquity",    position.startEquity   );
+   Chart.StoreDouble(__NAME__ +".runtime.position.slPrice",        position.slPrice       );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPip",          position.plPip         );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPipMin",       position.plPipMin      );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPipMax",       position.plPipMax      );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plUPip",         position.plUPip        );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plUPipMin",      position.plUPipMin     );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plUPipMax",      position.plUPipMax     );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPct",          position.plPct         );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPctMin",       position.plPctMin      );
+   Chart.StoreDouble(__NAME__ +".runtime.position.plPctMax",       position.plPctMax      );
+   Chart.StoreDouble(__NAME__ +".runtime.position.cumStartEquity", position.cumStartEquity);
+   Chart.StoreDouble(__NAME__ +".runtime.position.cumPl",          position.cumPl         );
+   Chart.StoreDouble(__NAME__ +".runtime.position.cumPlPct",       position.cumPlPct      );
+   Chart.StoreDouble(__NAME__ +".runtime.position.cumPlPctMin",    position.cumPlPctMin   );
+   Chart.StoreDouble(__NAME__ +".runtime.position.cumPlPctMax",    position.cumPlPctMax   );
 
    return(!catch("StoreRuntimeStatus(1)"));
 }
