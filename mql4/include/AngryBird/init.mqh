@@ -30,8 +30,7 @@ int onInit_User() {
       // confirm a headless chicken
       if (chicken.mode=="headless" && !IsTesting())
          if (!ConfirmHeadlessChicken()) return(SetLastError(ERR_CANCELLED_BY_USER));
-
-      debug("onInit_User(0.1)  chicken.mode="+ chicken.mode +"  grid.startDirection="+ grid.startDirection);
+      //debug("onInit_User(0.1)  chicken.mode="+ chicken.mode +"  grid.startDirection="+ grid.startDirection);
    }
 
 
