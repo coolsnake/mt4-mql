@@ -365,7 +365,7 @@ bool OpenPosition(int type) {
    int      oe[]; InitializeByteBuffer(oe, ORDER_EXECUTION.size);
 
    int ticket = OrderSendEx(symbol, type, lots, price, os.slippage, stopLoss, takeProfit, comment, os.magicNumber, expires, markerColor, oeFlags, oe);
-   if (ticket == -1) return(false);
+   if (!ticket) return(false);
 
    // update levels and ticket data
    grid.level++;                                                  // update grid.level
