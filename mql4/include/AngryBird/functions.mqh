@@ -333,4 +333,3 @@ double SetPositionCumPlPctMax(double value) {
    }
    return(value);
 }
-

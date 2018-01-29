@@ -30,7 +30,6 @@ int onInit_User() {
       // confirm a headless chicken
       if (chicken.mode=="headless" && !IsTesting())
          if (!ConfirmHeadlessChicken()) return(SetLastError(ERR_CANCELLED_BY_USER));
-      //debug("onInit_User(0.1)  chicken.mode="+ chicken.mode +"  grid.startDirection="+ grid.startDirection);
    }
 
 
@@ -40,6 +39,7 @@ int onInit_User() {
       ValidateConfig(); if (__STATUS_OFF)     return(last_error);
       // TODO: if Trade.StartMode = "Auto" read/validate input params from .set file
       RestoreRuntimeStatus(sequenceId);                  // for the rare case the EA was manually removed and gets re-attached
+      // TODO: Trade.Reverse restaurieren (nach RestoreRuntimeStatus)
       ReadOpenPositions();                               // read/synchronize positions with restored runtime data
 
       // init remaining not initialized sequence vars
@@ -250,11 +250,11 @@ int ReadOpenPositions() {
    if  (position.level != 0) grid.level = Abs(position.level);
    else if (grid.level != 0) {                                                   // grid.level was set but the positions are already closed
       __STATUS_OFF        = true;
-      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;
+      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;                               // TODO: continue if Trade.NonStop is On
       return(-1);
    }
 
-   // synchronize grid.minSize using the last order (only way to automatically transfer it between terminals)
+   // synchronize grid.minSize using the last order (atm the only way to auto-transfer it between terminals)
    if (grid.level && !Grid.Contractable) /*&&*/ if (StringLen(comment) > 0) {    // TODO: Grid.Contractable already needs to be validated
       string sValue = StringRightFrom(comment, "-", 2);                          // "ExpertName-10-2.0" => "2.0"
       if (!StringIsNumeric(sValue))
@@ -263,23 +263,16 @@ int ReadOpenPositions() {
       SetGridMinSize(MathMax(MathMax(dValue, grid.minSize), Grid.Min.Pips));     // TODO: Grid.Min.Pips already needs to be validated
    }
 
-   // synchronize lots.startSize using the first order (only way to automatically transfer it between terminals)
+   // synchronize lots.startSize using the first order (atm the only way to auto-transfer it between terminals)
    if (grid.level && !lots.startSize) {
       lots.startSize = position.lots[0];
    }
 
-   // synchronize position.size and position.avgPrice
-   UpdateTotalPosition();
-
-   // synchronize exit conditions: position.startEquity, position.cumStartEquity, position.slPrice, exit.trail*
+   // synchronize update position.startEquity, position.cumStartEquity and exit conditions
    if (grid.level > 0) {
       if (!position.startEquity)    position.startEquity    = NormalizeDouble(AccountEquity() - AccountCredit() - profit, 2);
       if (!position.cumStartEquity) position.cumStartEquity = position.startEquity;
-
-      double drawdown      = position.startEquity * StopLoss.Percent/100;
-      double drawdownPips  = drawdown / PipValue(position.size);
-      SetPositionSlPrice(    NormalizeDouble(position.avgPrice - Sign(position.level) *          drawdownPips*Pips, Digits));
-      exit.trailLimitPrice = NormalizeDouble(position.avgPrice + Sign(position.level) * Exit.Trail.Start.Pips*Pips, Digits);
+      UpdateExitConditions();
    }
    exit.trailStop = Exit.Trail.Pips > 0;
 
@@ -619,5 +612,4 @@ bool ConfirmHeadlessChicken() {
    int button = MessageBoxEx(__NAME__, ifString(IsDemoFix(), "", "- Real Account -\n\n") +"Do you really want to start the chicken in headless mode?", MB_ICONQUESTION|MB_OKCANCEL);
    return(button == IDOK);
 }
-
 
