@@ -250,7 +250,7 @@ int ReadOpenPositions() {
    if  (position.level != 0) grid.level = Abs(position.level);
    else if (grid.level != 0) {                                                   // grid.level was set but the positions are already closed
       __STATUS_OFF        = true;
-      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;                               // TODO: continue if Trade.NonStop is On
+      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;                               // TODO: continue if Trade.Restless is On
       return(-1);
    }
 
@@ -530,7 +530,7 @@ bool ResetStoredStatus() {
 
    // input parameters
    Chart.DeleteValue(__NAME__ +".input.Trade.StartMode"          );
-   Chart.DeleteValue(__NAME__ +".input.Trade.NonStop"            );
+   Chart.DeleteValue(__NAME__ +".input.Trade.Restless"           );
    Chart.DeleteValue(__NAME__ +".input.Trade.Reverse"            );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartSize"           );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartVola.Percent"   );

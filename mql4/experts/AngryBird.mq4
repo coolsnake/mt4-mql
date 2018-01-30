@@ -12,17 +12,16 @@
  *
  * Changes:
  * --------
- *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
- *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
  *  - Removed RSI entry filter as it has no statistical edge but only reduces opportunities.
  *  - Removed CCI stop as the drawdown limit is a better stop condition.
- *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
- *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
- *  - Added parameter "Trade.NonStop" to put the chicken to rest after TakeProfit or StopLoss are hit. Enough hip-hop.
- *  - If parameter Trade.NonStop is Off the status display will freeze and keep the last status for inspection once a
- *    sequence has been closed.
  *  - Added parameter "Lots.StartVola" for lotsize calculation based on account size and instrument volatility. Can also be
  *    used for compounding.
+ *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
+ *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
+ *  - Added parameter "Trade.Restless" to put the chicken to rest after the next winner. If Trade.Restless=Off the status
+ *    display will freeze and keep the last status for inspection once the chicken rests.
+ *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
+ *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
  */
 #include <stddefine.mqh>
 int   __INIT_FLAGS__[];
@@ -31,7 +30,7 @@ int __DEINIT_FLAGS__[];
 ////////////////////////////////////////////////////// Configuration ////////////////////////////////////////////////////////
 
 extern string Trade.StartMode       = "Long | Short | Headless* | Legless | Auto";
-extern bool   Trade.NonStop         = false;       // whether or not to continue trading once StopLoss or Takeprofit are hit
+extern bool   Trade.Restless        = false;       // whether or not to continue trading after the next winner
 extern bool   Trade.Reverse         = false;       // whether or not to enable Reverse-Martingale mode
 
 extern double Lots.StartSize         = 0;          // fix lotsize or 0 = dynamic lotsize using Lots.StartVola
@@ -108,11 +107,11 @@ double position.plPct       = EMPTY_VALUE;   // current PL in percent
 double position.plPctMin    = EMPTY_VALUE;   // min. PL in percent
 double position.plPctMax    = EMPTY_VALUE;   // max. PL in percent
 
-double position.cumStartEquity;              // equity in account currency after the last winner   (if Trade.NonStop=On)
-double position.cumPl       = EMPTY_VALUE;   // total PL in account currency since the last winner (if Trade.NonStop=On)
-double position.cumPlPct    = EMPTY_VALUE;   // total PL in percent since the last winner          (if Trade.NonStop=On)
-double position.cumPlPctMin = EMPTY_VALUE;   // total min. PL in percent since the last winner     (if Trade.NonStop=On)
-double position.cumPlPctMax = EMPTY_VALUE;   // total max. PL in percent since the last winner     (if Trade.NonStop=On)
+double position.cumStartEquity;              // equity in account currency after the last winner
+double position.cumPl       = EMPTY_VALUE;   // total PL in account currency since the last winner
+double position.cumPlPct    = EMPTY_VALUE;   // total PL in percent since the last winner
+double position.cumPlPctMin = EMPTY_VALUE;   // total min. PL in percent since the last winner
+double position.cumPlPctMax = EMPTY_VALUE;   // total max. PL in percent since the last winner
 
 bool   exit.trailStop;
 double exit.trailLimitPrice;                 // price limit to start trailing the current position's stops
@@ -402,7 +401,7 @@ bool CheckOpenPositions() {
       position.cumPl += position.plPip * PipValue(position.size);
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
-      if (Trade.NonStop) {
+      if (Trade.Restless) {
          resetCumulated = true;
          InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
          return(false);
@@ -418,14 +417,14 @@ bool CheckOpenPositions() {
       position.cumPl += position.plPip * PipValue(position.size);
       ClosePositions();
 
-      if (Trade.NonStop) {
+      if (Trade.Restless) {
          resetCumulated = false;
          InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
          return(false);
       }
    }
 
-   // Trade.NonStop = Off
+   // Trade.Restless = Off
    __STATUS_OFF        = true;
    __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;
    return(false);
@@ -494,16 +493,7 @@ bool UpdateExitConditions() {
 
    for (int i=0; i < grid.level; i++) {
       OrderSelect(position.tickets[i], SELECT_BY_TICKET);
-      if (NE(tpPrice, OrderTakeProfit())) {
-         if (!OrderModify(OrderTicket(), NULL, OrderStopLoss(), tpPrice, NULL, Blue)) {
-            int error = GetLastError();
-
-            debug("UpdateExitConditions(0.1)  position.cumStartEquity="+ DoubleToStr(position.cumStartEquity, 2) +"  position.cumPl="+ DoubleToStr(position.cumPl, 2) +"  profitPips="+ profitPips);
-
-            catch("UpdateExitConditions(0.2)  failed tpPrice: "+ NumberToStr(tpPrice, PriceFormat), error);
-            return(false);
-         }
-      }
+      if (NE(tpPrice, OrderTakeProfit())) OrderModify(OrderTicket(), NULL, OrderStopLoss(), tpPrice, NULL, Blue);
    }
 
    // StopLoss
@@ -733,11 +723,8 @@ int ShowStatus(int error=NO_ERROR) {
                                   " TP:             ", str.position.tpPip,    "      Stop:   ",       StopLoss.Percent,    " %         SL:   ",      str.position.slPrice,     NL,
                                   " PL:             ", str.position.plPip,    "      max:    ",       str.position.plPipMax,   "       min:    ",    str.position.plPipMin,    NL,
                                   " PL upip:      ",   str.position.plUPip,    "     max:    ",       str.position.plUPipMax,    "     min:    ",    str.position.plUPipMin,   NL,
-                                  " PL %:         ",   str.position.plPct,     "     max:    ",       str.position.plPctMax,    "      min:    ",    str.position.plPctMin,    NL);
-   if (1 || Trade.NonStop)
-     msg = StringConcatenate(msg, " PL % cum:  ",      str.position.cumPlPct,  "     max:    ",       str.position.cumPlPctMax, "      min:    ",    str.position.cumPlPctMin, NL);
-
-
+                                  " PL %:         ",   str.position.plPct,     "     max:    ",       str.position.plPctMax,    "      min:    ",    str.position.plPctMin,    NL,
+                                  " PL % cum:  ",      str.position.cumPlPct,  "     max:    ",       str.position.cumPlPctMax, "      min:    ",    str.position.cumPlPctMin, NL);
    // 4 lines margin-top
    Comment(StringConcatenate(NL, NL, NL, NL, msg));
 
@@ -849,7 +836,7 @@ bool ShowStopLossLevel() {
  */
 string InputsToStr() {
    static string ss.Trade.StartMode;        string s.Trade.StartMode        = "Trade.StartMode="       + DoubleQuoteStr(Trade.StartMode)           +"; ";
-   static string ss.Trade.NonStop;          string s.Trade.NonStop          = "Trade.NonStop="         + BoolToStr(Trade.NonStop)                  +"; ";
+   static string ss.Trade.Restless;         string s.Trade.Restless         = "Trade.Restless="        + BoolToStr(Trade.Restless)                 +"; ";
    static string ss.Trade.Reverse;          string s.Trade.Reverse          = "Trade.Reverse="         + BoolToStr(Trade.Reverse)                  +"; ";
 
    static string ss.Lots.StartSize;         string s.Lots.StartSize         = "Lots.StartSize="        + NumberToStr(Lots.StartSize, ".1+")        +"; ";
@@ -877,7 +864,7 @@ string InputsToStr() {
       result = StringConcatenate("input: ",
 
                                  s.Trade.StartMode,
-                                 s.Trade.NonStop,
+                                 s.Trade.Restless,
                                  s.Trade.Reverse,
 
                                  s.Lots.StartSize,
@@ -903,7 +890,7 @@ string InputsToStr() {
       result = StringConcatenate("modified input: ",
 
                                  ifString(s.Trade.StartMode        == ss.Trade.StartMode,        "", s.Trade.StartMode       ),
-                                 ifString(s.Trade.NonStop          == ss.Trade.NonStop,          "", s.Trade.NonStop         ),
+                                 ifString(s.Trade.Restless         == ss.Trade.Restless,         "", s.Trade.Restless        ),
                                  ifString(s.Trade.Reverse          == ss.Trade.Reverse,          "", s.Trade.Reverse         ),
 
                                  ifString(s.Lots.StartSize         == ss.Lots.StartSize,         "", s.Lots.StartSize        ),
@@ -926,7 +913,7 @@ string InputsToStr() {
    }
 
    ss.Trade.StartMode        = s.Trade.StartMode;
-   ss.Trade.NonStop          = s.Trade.NonStop;
+   ss.Trade.Restless         = s.Trade.Restless;
    ss.Trade.Reverse          = s.Trade.Reverse;
 
    ss.Lots.StartSize         = s.Lots.StartSize;
