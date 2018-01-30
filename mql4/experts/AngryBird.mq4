@@ -481,14 +481,18 @@ double UpdateTotalPosition() {
  * @return bool - success status
  */
 bool UpdateExitConditions() {
+   if (__STATUS_OFF || !grid.level)
+      return(false);
+
    double profitPips, drawdownPips, avgPrice = UpdateTotalPosition();
    int direction = Sign(position.level);
 
    // TakeProfit
    if (Trade.Reverse) profitPips = (position.cumStartEquity * StopLoss.Percent/100 - position.cumPl) / PipValue(position.size);
    else               profitPips = TakeProfit.Pips;
-   double tpPrice = NormalizeDouble(avgPrice + direction * profitPips*Pips, Digits);
-
+   double tpPrice = avgPrice + direction * profitPips*Pips;
+   if (direction == 1) tpPrice = RoundCeil (tpPrice, Digits);
+   else                tpPrice = RoundFloor(tpPrice, Digits);
    for (int i=0; i < grid.level; i++) {
       OrderSelect(position.tickets[i], SELECT_BY_TICKET);
       if (NE(tpPrice, OrderTakeProfit())) OrderModify(OrderTicket(), NULL, OrderStopLoss(), tpPrice, NULL, Blue);
@@ -497,10 +501,15 @@ bool UpdateExitConditions() {
    // StopLoss
    if (Trade.Reverse) drawdownPips = TakeProfit.Pips;
    else               drawdownPips = (position.startEquity * StopLoss.Percent/100) / PipValue(position.size);
-   SetPositionSlPrice(NormalizeDouble(avgPrice - direction * drawdownPips*Pips, Digits));
+   double slPrice = avgPrice - direction * drawdownPips*Pips;
+   if (direction == 1) slPrice = RoundFloor(slPrice, Digits);
+   else                slPrice = RoundCeil (slPrice, Digits);
+   SetPositionSlPrice(slPrice);
 
    // TrailLimit
-   exit.trailLimitPrice = NormalizeDouble(avgPrice + direction * Exit.Trail.Start.Pips*Pips, Digits);
+   exit.trailLimitPrice = avgPrice + direction * Exit.Trail.Start.Pips*Pips;
+   if (direction == 1) exit.trailLimitPrice = RoundCeil (exit.trailLimitPrice, Digits);
+   else                exit.trailLimitPrice = RoundFloor(exit.trailLimitPrice, Digits);
 
    return(!catch("UpdateExitConditions(1)"));
 }
