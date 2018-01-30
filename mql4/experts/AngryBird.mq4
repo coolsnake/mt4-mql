@@ -18,9 +18,9 @@
  *    used for compounding.
  *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
  *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
- *  - Added parameter "Trade.Restless" to put the chicken to rest after the next winner. If Trade.Restless=Off the status
+ *  - Added parameter "Trade.Restless" to put the chicken to rest after the next winner. If Trade.Restless is Off the status
  *    display will freeze and keep the last status for inspection once the chicken rests.
- *  - Added parameter "Trade.Reverse" to turn the strategy into Reverse-Martingale mode. All trade operations are reversed,
+ *  - Added parameter "Trade.Reverse" to switch the strategy into Reverse-Martingale mode. All trade operations are reversed,
  *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
  */
 #include <stddefine.mqh>
@@ -401,7 +401,7 @@ bool CheckOpenPositions() {
       position.cumPl += position.plPip * PipValue(position.size);
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
-      if (Trade.Restless) {
+      if (Trade.Restless) {                                 // continue trading after a winner only if Trade.Restless is On
          resetCumulated = true;
          InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
          return(false);
@@ -417,11 +417,9 @@ bool CheckOpenPositions() {
       position.cumPl += position.plPip * PipValue(position.size);
       ClosePositions();
 
-      if (Trade.Restless) {
-         resetCumulated = false;
-         InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
-         return(false);
-      }
+      resetCumulated = false;                               // always continue trading after a loser
+      InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
+      return(false);
    }
 
    // Trade.Restless = Off
