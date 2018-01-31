@@ -690,22 +690,13 @@ bool UpdateStatus() {
       if (position.level > 0) plPip = SetPositionPlPip((Bid - position.avgPrice) / Pip);
       else                    plPip = SetPositionPlPip((position.avgPrice - Ask) / Pip);
 
-      if (plPip < position.plPipMin || position.plPipMin==EMPTY_VALUE) SetPositionPlPipMin(plPip);
-      if (plPip > position.plPipMax || position.plPipMax==EMPTY_VALUE) SetPositionPlPipMax(plPip);
-
       // position.plUPip
       double units  = position.size / lots.startSize;
-      double plUPip = SetPositionPlUPip(units * plPip);
-
-      if (plUPip < position.plUPipMin || position.plUPipMin==EMPTY_VALUE) SetPositionPlUPipMin(plUPip);
-      if (plUPip > position.plUPipMax || position.plUPipMax==EMPTY_VALUE) SetPositionPlUPipMax(plUPip);
+      SetPositionPlUPip(units * plPip);
 
       // position.plPct
       double profit = plPip * PipValue(position.size);
-      double plPct  = SetPositionPlPct(profit / position.startEquity * 100);
-
-      if (plPct < position.plPctMin || position.plPctMin==EMPTY_VALUE) SetPositionPlPctMin(plPct);
-      if (plPct > position.plPctMax || position.plPctMax==EMPTY_VALUE) SetPositionPlPctMax(plPct);
+      SetPositionPlPct(profit / position.startEquity * 100);
 
       // position.cumPlPct
       SetPositionCumPlPct((position.cumPl + profit) / position.cumStartEquity * 100);
