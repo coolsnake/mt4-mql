@@ -110,6 +110,15 @@ double SetPositionPlPip(double value) {
          if (value == EMPTY_VALUE) str.position.plPip = "-";
          else                      str.position.plPip = DoubleToStr(value, 1) +" pip";
       }
+
+      if (value == EMPTY_VALUE) {
+         SetPositionPlPipMin(value);
+         SetPositionPlPipMin(value);
+      }
+      else {
+         if (value < position.plPipMin || position.plPipMin==EMPTY_VALUE) SetPositionPlPipMin(value);
+         if (value > position.plPipMax || position.plPipMax==EMPTY_VALUE) SetPositionPlPipMax(value);
+      }
    }
    return(value);
 }
@@ -170,6 +179,15 @@ double SetPositionPlUPip(double value) {
          if (value == EMPTY_VALUE) str.position.plUPip = "-";
          else                      str.position.plUPip = DoubleToStr(value, 1) +" upip";
       }
+
+      if (value == EMPTY_VALUE) {
+         SetPositionPlUPipMin(value);
+         SetPositionPlUPipMin(value);
+      }
+      else {
+         if (value < position.plUPipMin || position.plUPipMin==EMPTY_VALUE) SetPositionPlPipMin(value);
+         if (value > position.plUPipMax || position.plUPipMax==EMPTY_VALUE) SetPositionPlPipMax(value);
+      }
    }
    return(value);
 }
@@ -229,6 +247,15 @@ double SetPositionPlPct(double value) {
       if (__CHART) {
          if (value == EMPTY_VALUE) str.position.plPct = "-";
          else                      str.position.plPct = DoubleToStr(value, 2) +" %";
+      }
+
+      if (value == EMPTY_VALUE) {
+         SetPositionPlPctMin(value);
+         SetPositionPlPctMax(value);
+      }
+      else {
+         if (value < position.plPctMin || position.plPctMin==EMPTY_VALUE) SetPositionPlPctMin(value);
+         if (value > position.plPctMax || position.plPctMax==EMPTY_VALUE) SetPositionPlPctMax(value);
       }
    }
    return(value);

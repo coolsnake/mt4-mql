@@ -406,7 +406,7 @@ bool CheckOpenPositions() {
 
    // check TakeProfit
    if (i >= grid.level) {                                         // all positions are closed
-      position.cumPl += profit;
+      position.cumPl = NormalizeDouble(position.cumPl + profit, 2);
       SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
@@ -422,8 +422,8 @@ bool CheckOpenPositions() {
       if (position.level > 0) { if (Ask > position.slPrice) return(true); }
       else                    { if (Bid < position.slPrice) return(true); }
 
-      profit          = ClosePositions();
-      position.cumPl += profit;
+      profit         = ClosePositions();
+      position.cumPl = NormalizeDouble(position.cumPl + profit, 2);
       SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(2)  SL("+ StopLoss.Percent +"%) hit:  level="+ position.level);
 
@@ -505,22 +505,26 @@ bool UpdateExitConditions() {
    if (__STATUS_OFF || !grid.level)
       return(false);
 
-   double profitPips, drawdownPips, avgPrice = UpdateTotalPosition();
+   double fees, profitPips, drawdownPips, avgPrice = UpdateTotalPosition();
    int direction = Sign(position.level);
 
    // TakeProfit
-   if (Trade.Reverse) profitPips = (position.cumStartEquity * StopLoss.Percent/100 - position.cumPl) / PipValue(position.size);
-   else               profitPips = TakeProfit.Pips;
+   for (int i=0; i < grid.level; i++) {
+      OrderSelect(position.tickets[i], SELECT_BY_TICKET);
+      fees += OrderSwap() + OrderCommission();                    // always consider fees for TakeProfit calculation
+   }
+   if (Trade.Reverse) profitPips = (position.cumStartEquity * StopLoss.Percent/100 - position.cumPl - fees) / PipValue(position.size);
+   else               profitPips = TakeProfit.Pips - fees/PipValue(position.size);
    double tpPrice = avgPrice + direction * profitPips*Pips;
    if (direction == 1) tpPrice = RoundCeil (tpPrice, Digits);
    else                tpPrice = RoundFloor(tpPrice, Digits);
-   for (int i=0; i < grid.level; i++) {
+   for (i=0; i < grid.level; i++) {
       OrderSelect(position.tickets[i], SELECT_BY_TICKET);
       if (NE(tpPrice, OrderTakeProfit())) OrderModify(OrderTicket(), NULL, OrderStopLoss(), tpPrice, NULL, Blue);
    }
 
    // StopLoss
-   if (Trade.Reverse) drawdownPips = TakeProfit.Pips;
+   if (Trade.Reverse) drawdownPips = TakeProfit.Pips;             // never consider fees for StopLoss calculation
    else               drawdownPips = (position.startEquity * StopLoss.Percent/100) / PipValue(position.size);
    double slPrice = avgPrice - direction * drawdownPips*Pips;
    if (direction == 1) slPrice = RoundFloor(slPrice, Digits);
@@ -528,9 +532,11 @@ bool UpdateExitConditions() {
    SetPositionSlPrice(slPrice);
 
    // TrailLimit
-   exit.trailLimitPrice = avgPrice + direction * Exit.Trail.Start.Pips*Pips;
-   if (direction == 1) exit.trailLimitPrice = RoundCeil (exit.trailLimitPrice, Digits);
-   else                exit.trailLimitPrice = RoundFloor(exit.trailLimitPrice, Digits);
+   if (exit.trailStop) {
+      exit.trailLimitPrice = avgPrice + direction * Exit.Trail.Start.Pips*Pips;
+      if (direction == 1) exit.trailLimitPrice = RoundCeil (exit.trailLimitPrice, Digits);
+      else                exit.trailLimitPrice = RoundFloor(exit.trailLimitPrice, Digits);
+   }
 
    return(!catch("UpdateExitConditions(1)"));
 }
