@@ -392,32 +392,42 @@ bool OpenPosition(int type) {
 bool CheckOpenPositions() {
    if (__STATUS_OFF || !position.level)
       return(false);
+
+   double profit;
    bool resetCumulated;
 
-   // TakeProfit
-   OrderSelect(position.tickets[0], SELECT_BY_TICKET);
-   if (OrderCloseTime() != 0) {
-      // TODO: internal variables are wrong here, instead evaluate the real PL of the closed positions
-      position.cumPl += position.plPip * PipValue(position.size);
+   // check open positions
+   for (int i=0; i < grid.level; i++) {
+      OrderSelect(position.tickets[i], SELECT_BY_TICKET);
+      if (!OrderCloseTime())                                      // position is open
+         break;
+      profit += OrderProfit() + OrderSwap() + OrderCommission();  // position is closed
+   }
+
+   // check TakeProfit
+   if (i >= grid.level) {                                         // all positions are closed
+      position.cumPl += profit;
+      SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
-      if (Trade.Restless) {                                 // continue trading after a winner only if Trade.Restless is On
+      if (Trade.Restless) {                                       // continue trading after a winner only if Trade.Restless is On
          resetCumulated = true;
          InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
          return(false);
       }
    }
 
-   // StopLoss
-   else {                                                   // prevent the limit from being triggered by spread widening
+   // check StopLoss
+   else {                                                         // prevent the limit from being triggered by spread widening
       if (position.level > 0) { if (Ask > position.slPrice) return(true); }
       else                    { if (Bid < position.slPrice) return(true); }
 
+      profit          = ClosePositions();
+      position.cumPl += profit;
+      SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(2)  SL("+ StopLoss.Percent +"%) hit:  level="+ position.level);
-      position.cumPl += position.plPip * PipValue(position.size);
-      ClosePositions();
 
-      resetCumulated = false;                               // always continue trading after a loser
+      resetCumulated = false;                                     // always continue trading after a loser
       InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
       return(false);
    }
@@ -431,18 +441,29 @@ bool CheckOpenPositions() {
 
 /**
  * Close all open positions.
+ *
+ * @return double - realized profit inclusive swaps and commissions or NULL in case of errors
  */
-void ClosePositions() {
+double ClosePositions() {
    if (__STATUS_OFF || !grid.level)
-      return;
+      return(NULL);
 
    if (!ConfirmFirstTickTrade("ClosePositions()", "Do you really want to close all open positions now?"))
-      return(SetLastError(ERR_CANCELLED_BY_USER));
+      return(!SetLastError(ERR_CANCELLED_BY_USER));
 
    int oes[][ORDER_EXECUTION.intSize];
    int oeFlags = ifInt(IsTesting(), OE_MULTICLOSE_NOHEDGE, NULL);
 
-   OrderMultiClose(position.tickets, os.slippage, Orange, oeFlags, oes);
+   if (!OrderMultiClose(position.tickets, os.slippage, Orange, oeFlags, oes))
+      return(NULL);
+
+   int size = ArraySize(position.tickets);
+   double profit;
+
+   for (int i=0; i < size; i++) {
+      profit += oes.Profit(oes, i) + oes.Swap(oes, i) + oes.Commission(oes, i);
+   }
+   return(NormalizeDouble(profit, 2));
 }
 
 
@@ -601,9 +622,7 @@ bool InitSequenceStatus(string startMode, string direction, int status, bool res
    if (resetCumulatedData) {
       position.cumStartEquity = 0;
       position.cumPl          = 0;
-      SetPositionCumPlPct   (EMPTY_VALUE);
-      SetPositionCumPlPctMin(EMPTY_VALUE);
-      SetPositionCumPlPctMax(EMPTY_VALUE);
+      SetPositionCumPlPct(EMPTY_VALUE);
    }
 
    exit.trailStop       = Exit.Trail.Pips > 0;
@@ -662,7 +681,7 @@ bool ConfirmFirstTickTrade(string location, string message) {
 bool UpdateStatus() {
    if (__STATUS_OFF) return(false);
 
-   if (1 || !IsTesting())
+   if (!IsTesting() || IsVisualMode())
       UpdateGridSize();                            // only for ShowStatus() on every tick/call
 
    if (position.level != 0) {
@@ -689,11 +708,7 @@ bool UpdateStatus() {
       if (plPct > position.plPctMax || position.plPctMax==EMPTY_VALUE) SetPositionPlPctMax(plPct);
 
       // position.cumPlPct
-      double cumProfit = position.cumPl + profit;
-      double cumPlPct  = SetPositionCumPlPct(cumProfit / position.cumStartEquity * 100);
-
-      if (cumPlPct < position.cumPlPctMin || position.cumPlPctMin==EMPTY_VALUE) SetPositionCumPlPctMin(cumPlPct);
-      if (cumPlPct > position.cumPlPctMax || position.cumPlPctMax==EMPTY_VALUE) SetPositionCumPlPctMax(cumPlPct);
+      SetPositionCumPlPct((position.cumPl + profit) / position.cumStartEquity * 100);
    }
    return(true);
 }

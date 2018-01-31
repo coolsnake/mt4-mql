@@ -290,6 +290,15 @@ double SetPositionCumPlPct(double value) {
          if (value == EMPTY_VALUE) str.position.cumPlPct = "-";
          else                      str.position.cumPlPct = DoubleToStr(value, 2) +" %";
       }
+
+      if (value == EMPTY_VALUE) {
+         SetPositionCumPlPctMin(value);
+         SetPositionCumPlPctMax(value);
+      }
+      else {
+         if (value < position.cumPlPctMin || position.cumPlPctMin==EMPTY_VALUE) SetPositionCumPlPctMin(value);
+         if (value > position.cumPlPctMax || position.cumPlPctMax==EMPTY_VALUE) SetPositionCumPlPctMax(value);
+      }
    }
    return(value);
 }
