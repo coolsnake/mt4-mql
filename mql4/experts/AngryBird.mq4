@@ -290,10 +290,10 @@ double CalculateLotsize(int level) {
          double unleveragedLots = AccountBalance() / lotValue;                   // unleveraged lotsize (leverage 1:1)
          if (unleveragedLots < 0) unleveragedLots = 0;
 
-         // expected weekly range: maximum of ATR(14xW1), previous TrueRange(W1) and current TrueRange(W1)
-         double a = @ATR(NULL, PERIOD_W1, 14, 1); if (!a) return(_NULL(debug("CalculateLotsize(4)  W1", last_error)));
-         double b = @ATR(NULL, PERIOD_W1,  1, 1); if (!b) return(_NULL(debug("CalculateLotsize(5)  W1", last_error)));
-         double c = @ATR(NULL, PERIOD_W1,  1, 0); if (!c) return(_NULL(debug("CalculateLotsize(6)  W1", last_error)));
+         // expected weekly range: maximum of ATR(100xW1), previous TrueRange(W1) and current TrueRange(W1)
+         double a = @ATR(NULL, PERIOD_W1, 100, 1); if (!a) return(_NULL(debug("CalculateLotsize(4)  W1", last_error)));
+         double b = @ATR(NULL, PERIOD_W1,   1, 1); if (!b) return(_NULL(debug("CalculateLotsize(5)  W1", last_error)));
+         double c = @ATR(NULL, PERIOD_W1,   1, 0); if (!c) return(_NULL(debug("CalculateLotsize(6)  W1", last_error)));
          double expectedRange    = MathMax(a, MathMax(b, c));
          double expectedRangePct = expectedRange/Close[0] * 100;
 
