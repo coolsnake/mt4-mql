@@ -255,7 +255,7 @@ int ReadOpenPositions() {
    }
 
    // synchronize grid.minSize using the last order (atm the only way to auto-transfer it between terminals)
-   if (grid.level && !Grid.Contractable) /*&&*/ if (StringLen(comment) > 0) {    // TODO: Grid.Contractable already needs to be validated
+   if (grid.level && StringLen(comment) > 0) {
       string sValue = StringRightFrom(comment, "-", 2);                          // "ExpertName-10-2.0" => "2.0"
       if (!StringIsNumeric(sValue))
          return(_EMPTY(catch("ReadOpenPositions(4)  no grid size found in order comment "+ DoubleQuoteStr(comment), ERR_RUNTIME_ERROR)));

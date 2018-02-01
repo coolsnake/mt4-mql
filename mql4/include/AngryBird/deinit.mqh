@@ -47,7 +47,6 @@ bool StoreRuntimeStatus() {
    Chart.StoreInt   (__NAME__ +".input.Grid.MaxLevels",         Grid.MaxLevels        );
    Chart.StoreDouble(__NAME__ +".input.Grid.Min.Pips",          Grid.Min.Pips         );
    Chart.StoreDouble(__NAME__ +".input.Grid.Max.Pips",          Grid.Max.Pips         );
-   Chart.StoreBool  (__NAME__ +".input.Grid.Contractable",      Grid.Contractable     );
    Chart.StoreInt   (__NAME__ +".input.Grid.Lookback.Periods",  Grid.Lookback.Periods );
    Chart.StoreInt   (__NAME__ +".input.Grid.Lookback.Divider",  Grid.Lookback.Divider );
    Chart.StoreDouble(__NAME__ +".input.Exit.Trail.Pips",        Exit.Trail.Pips       );

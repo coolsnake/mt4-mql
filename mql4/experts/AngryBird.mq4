@@ -30,22 +30,25 @@ int __DEINIT_FLAGS__[];
 
 extern string Trade.StartMode        = "Long | Short | Headless* | Legless | Auto";
 extern bool   Trade.Reverse          = false;      // whether or not to enable Reverse-Martingale mode
-extern bool   Trade.StopAtTarget     = false;      // whether or not to continue trading once the profit target is reached
+extern bool   Trade.StopAtTarget     = true;       // whether or not to continue trading once the profit target is reached
+extern string _____________________________1_;
 
 extern double Lots.StartSize         = 0;          // fix lotsize or 0 = dynamic lotsize using Lots.StartVola
 extern int    Lots.StartVola.Percent = 30;         // expected weekly equity volatility, see CalculateLotSize()
 extern double Lots.Multiplier        = 2;
+extern string _____________________________2_;
 
 extern double TakeProfit.Pips        = 2;
 extern int    StopLoss.Percent       = 20;
 extern bool   StopLoss.ShowLevels    = false;      // display extrapolated StopLoss levels
+extern string _____________________________3_;
 
 extern int    Grid.MaxLevels         = 0;          // 0 = no limit (was "MaxTrades = 10")
 extern double Grid.Min.Pips          = 30;         // was "DefaultPips/DEL = 0.4"
 extern double Grid.Max.Pips          = 0;          // was "DefaultPips*DEL = 3.6"
-extern bool   Grid.Contractable      = false;      // whether or not the grid is allowed to contract (was TRUE)
 extern int    Grid.Lookback.Periods  = 70;         // was "Glubina = 24"
 extern int    Grid.Lookback.Divider  = 3;          // was "DEL = 3"
+extern string _____________________________4_;
 
 extern double Exit.Trail.Pips        = 0;          // trailing stop size in pip: 0=Off (was 1)
 extern double Exit.Trail.Start.Pips  = 1;          // minimum profit in pip to start trailing
@@ -230,11 +233,8 @@ double UpdateGridSize() {
    double gridSize  = barRange / Grid.Lookback.Divider;
    SetGridMarketSize(NormalizeDouble(gridSize, 1));
 
-   double usedSize = grid.marketSize;
+   double usedSize = MathMax(grid.marketSize, grid.minSize);
    usedSize = MathMax(usedSize, Grid.Min.Pips);                // enforce lower user defined limit
-
-   if (!Grid.Contractable)
-      usedSize = MathMax(usedSize, grid.minSize);              // prevent grid size shrinking (grid.minSize may differ from Grid.Min.Pips)
 
    if (Grid.Max.Pips > 0)
       usedSize = MathMin(usedSize, Grid.Max.Pips);             // enforce upper user defined limit
@@ -365,14 +365,13 @@ bool OpenPosition(int type) {
    if (!ticket) return(false);
 
    // update levels and ticket data
-   grid.level++;                                                  // update grid.level
-   if (!Grid.Contractable)
-      SetGridMinSize(MathMax(grid.minSize, grid.usedSize));       // update grid.minSize
+   grid.level++;
+   SetGridMinSize(MathMax(grid.minSize, grid.usedSize));
 
-   if (type == OP_BUY) position.level++;                          // update position.level
+   if (type == OP_BUY) position.level++;
    else                position.level--;
 
-   ArrayPushInt   (position.tickets,    ticket);                  // store ticket data
+   ArrayPushInt   (position.tickets,    ticket);
    ArrayPushDouble(position.lots,       oe.Lots(oe));
    ArrayPushDouble(position.openPrices, oe.OpenPrice(oe));
 
@@ -867,7 +866,6 @@ string InputsToStr() {
    static string ss.Grid.MaxLevels;         string s.Grid.MaxLevels         = "Grid.MaxLevels="        + Grid.MaxLevels                            +"; ";
    static string ss.Grid.Min.Pips;          string s.Grid.Min.Pips          = "Grid.Min.Pips="         + NumberToStr(Grid.Min.Pips, ".1+")         +"; ";
    static string ss.Grid.Max.Pips;          string s.Grid.Max.Pips          = "Grid.Max.Pips="         + NumberToStr(Grid.Max.Pips, ".1+")         +"; ";
-   static string ss.Grid.Contractable;      string s.Grid.Contractable      = "Grid.Contractable="     + BoolToStr(Grid.Contractable)              +"; ";
    static string ss.Grid.Lookback.Periods;  string s.Grid.Lookback.Periods  = "Grid.Lookback.Periods=" + Grid.Lookback.Periods                     +"; ";
    static string ss.Grid.Lookback.Divider;  string s.Grid.Lookback.Divider  = "Grid.Lookback.Divider=" + Grid.Lookback.Divider                     +"; ";
 
@@ -895,7 +893,6 @@ string InputsToStr() {
                                  s.Grid.MaxLevels,
                                  s.Grid.Min.Pips,
                                  s.Grid.Max.Pips,
-                                 s.Grid.Contractable,
                                  s.Grid.Lookback.Periods,
                                  s.Grid.Lookback.Divider,
 
@@ -921,7 +918,6 @@ string InputsToStr() {
                                  ifString(s.Grid.MaxLevels         == ss.Grid.MaxLevels,         "", s.Grid.MaxLevels        ),
                                  ifString(s.Grid.Min.Pips          == ss.Grid.Min.Pips,          "", s.Grid.Min.Pips         ),
                                  ifString(s.Grid.Max.Pips          == ss.Grid.Max.Pips,          "", s.Grid.Max.Pips         ),
-                                 ifString(s.Grid.Contractable      == ss.Grid.Contractable,      "", s.Grid.Contractable     ),
                                  ifString(s.Grid.Lookback.Periods  == ss.Grid.Lookback.Periods,  "", s.Grid.Lookback.Periods ),
                                  ifString(s.Grid.Lookback.Divider  == ss.Grid.Lookback.Divider,  "", s.Grid.Lookback.Divider ),
 
@@ -944,7 +940,6 @@ string InputsToStr() {
    ss.Grid.MaxLevels         = s.Grid.MaxLevels;
    ss.Grid.Min.Pips          = s.Grid.Min.Pips;
    ss.Grid.Max.Pips          = s.Grid.Max.Pips;
-   ss.Grid.Contractable      = s.Grid.Contractable;
    ss.Grid.Lookback.Periods  = s.Grid.Lookback.Periods;
    ss.Grid.Lookback.Divider  = s.Grid.Lookback.Divider;
 
