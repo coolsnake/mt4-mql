@@ -27,8 +27,8 @@ int onInit_User() {
       bool   resetCumulated = true;
       InitSequenceStatus(startMode, startDirection, status, resetCumulated);
 
-      // confirm a headless chicken
-      if (chicken.mode=="headless" && !IsTesting())
+      // confirm a headless chicken in Martingale mode
+      if (!Trade.Reverse && chicken.mode=="headless" && !IsTesting())
          if (!ConfirmHeadlessChicken()) return(SetLastError(ERR_CANCELLED_BY_USER));
    }
 
@@ -250,7 +250,7 @@ int ReadOpenPositions() {
    if  (position.level != 0) grid.level = Abs(position.level);
    else if (grid.level != 0) {                                                   // grid.level was set but the positions are already closed
       __STATUS_OFF        = true;
-      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;                               // TODO: continue if Trade.Restless is On
+      __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;                               // TODO: continue if profit target hasn't been reached yet
       return(-1);
    }
 
@@ -530,8 +530,8 @@ bool ResetStoredStatus() {
 
    // input parameters
    Chart.DeleteValue(__NAME__ +".input.Trade.StartMode"          );
-   Chart.DeleteValue(__NAME__ +".input.Trade.Restless"           );
    Chart.DeleteValue(__NAME__ +".input.Trade.Reverse"            );
+   Chart.DeleteValue(__NAME__ +".input.Trade.StopAtTarget"       );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartSize"           );
    Chart.DeleteValue(__NAME__ +".input.Lots.StartVola.Percent"   );
    Chart.DeleteValue(__NAME__ +".input.Lots.Multiplier"          );

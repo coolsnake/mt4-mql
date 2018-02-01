@@ -36,8 +36,8 @@ bool StoreRuntimeStatus() {
 
    // input parameters
    Chart.StoreString(__NAME__ +".input.Trade.StartMode",        Trade.StartMode       );
-   Chart.StoreBool  (__NAME__ +".input.Trade.Restless",         Trade.Restless        );
    Chart.StoreBool  (__NAME__ +".input.Trade.Reverse",          Trade.Reverse         );
+   Chart.StoreBool  (__NAME__ +".input.Trade.StopAtTarget",     Trade.StopAtTarget    );
    Chart.StoreDouble(__NAME__ +".input.Lots.StartSize",         Lots.StartSize        );
    Chart.StoreInt   (__NAME__ +".input.Lots.StartVola.Percent", Lots.StartVola.Percent);
    Chart.StoreDouble(__NAME__ +".input.Lots.Multiplier",        Lots.Multiplier       );

@@ -18,10 +18,9 @@
  *    used for compounding.
  *  - Added explicit grid limits (parameters "Grid.MaxLevels", "Grid.Min.Pips", "Grid.Max.Pips", "Grid.Contractable").
  *  - Added parameter "Trade.StartMode" to kick-start the chicken in a given direction (doesn't wait for BarOpen).
- *  - Added parameter "Trade.Restless" to put the chicken to rest after the next winner. If Trade.Restless is Off the status
- *    display will freeze and keep the last status for inspection once the chicken rests.
  *  - Added parameter "Trade.Reverse" to switch the strategy into Reverse-Martingale mode. All trade operations are reversed,
  *    TakeProfit will become StopLoss and StopLoss will become cumulative TakeProfit.
+ *  - Added parameter "Trade.StopAtTarget" to stop the chicken after the profit target has been reached.
  */
 #include <stddefine.mqh>
 int   __INIT_FLAGS__[];
@@ -29,9 +28,9 @@ int __DEINIT_FLAGS__[];
 
 ////////////////////////////////////////////////////// Configuration ////////////////////////////////////////////////////////
 
-extern string Trade.StartMode       = "Long | Short | Headless* | Legless | Auto";
-extern bool   Trade.Restless        = false;       // whether or not to continue trading after the next winner
-extern bool   Trade.Reverse         = false;       // whether or not to enable Reverse-Martingale mode
+extern string Trade.StartMode        = "Long | Short | Headless* | Legless | Auto";
+extern bool   Trade.Reverse          = false;      // whether or not to enable Reverse-Martingale mode
+extern bool   Trade.StopAtTarget     = false;      // whether or not to continue trading once the profit target is reached
 
 extern double Lots.StartSize         = 0;          // fix lotsize or 0 = dynamic lotsize using Lots.StartVola
 extern int    Lots.StartVola.Percent = 30;         // expected weekly equity volatility, see CalculateLotSize()
@@ -316,10 +315,9 @@ double CalculateLotsize(int level) {
    if (!result) return(!catch("CalculateLotsize(7)  The resulting lot size for level "+ level +" is too small for this account (calculated="+ NumberToStr(calculated, ".+") +", MODE_MINLOT="+ NumberToStr(MarketInfo(Symbol(), MODE_MINLOT), ".+") +", normalized=0)", ERR_INVALID_TRADE_VOLUME));
 
    double ratio = result / calculated;
-   if (ratio < 1) ratio = 1/ratio;
-   if (ratio > 1.15) {                                                           // ask for confirmation if the resulting lotsize deviates > 15% from the calculation
+   if (ratio > 1.15) {                                                           // ask for confirmation if the resulting lotsize > 15% from the calculation
       static bool lotsConfirmed = false;
-      if (!ArraySize(position.tickets) && !lotsConfirmed) {
+      if (!position.cumPl && !lotsConfirmed) {                                   // ask only before the very first trade
          PlaySoundEx("Windows Notify.wav");
          string msg = "The lot size for level "+ level +" substantially deviates from the calculation: "+ NumberToStr(result, ".+") +" instead of "+ NumberToStr(calculated, ".+");
          int button = MessageBoxEx(__NAME__ +" - CalculateLotsize()", ifString(IsDemoFix(), "", "- Real Account -\n\n") + msg, MB_ICONQUESTION|MB_OKCANCEL);
@@ -410,7 +408,7 @@ bool CheckOpenPositions() {
       SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
-      if (Trade.Restless) {                                       // continue trading after a winner only if Trade.Restless is On
+      if (!Trade.StopAtTarget) {                                  // continue trading?
          resetCumulated = true;
          InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
          return(false);
@@ -432,7 +430,7 @@ bool CheckOpenPositions() {
       return(false);
    }
 
-   // Trade.Restless = Off
+   // Trade.StopAtTarget is On and the profit target is reached
    __STATUS_OFF        = true;
    __STATUS_OFF.reason = ERR_CANCELLED_BY_USER;
    return(false);
@@ -855,8 +853,8 @@ bool ShowStopLossLevel() {
  */
 string InputsToStr() {
    static string ss.Trade.StartMode;        string s.Trade.StartMode        = "Trade.StartMode="       + DoubleQuoteStr(Trade.StartMode)           +"; ";
-   static string ss.Trade.Restless;         string s.Trade.Restless         = "Trade.Restless="        + BoolToStr(Trade.Restless)                 +"; ";
    static string ss.Trade.Reverse;          string s.Trade.Reverse          = "Trade.Reverse="         + BoolToStr(Trade.Reverse)                  +"; ";
+   static string ss.Trade.StopAtTarget;     string s.Trade.StopAtTarget     = "Trade.StopAtTarget="    + BoolToStr(Trade.StopAtTarget)             +"; ";
 
    static string ss.Lots.StartSize;         string s.Lots.StartSize         = "Lots.StartSize="        + NumberToStr(Lots.StartSize, ".1+")        +"; ";
    static string ss.Lots.StartVola.Percent; string s.Lots.StartVola.Percent = "Lots.StartVola.Percent="+ Lots.StartVola.Percent                    +"; ";
@@ -883,8 +881,8 @@ string InputsToStr() {
       result = StringConcatenate("input: ",
 
                                  s.Trade.StartMode,
-                                 s.Trade.Restless,
                                  s.Trade.Reverse,
+                                 s.Trade.StopAtTarget,
 
                                  s.Lots.StartSize,
                                  s.Lots.StartVola.Percent,
@@ -909,8 +907,8 @@ string InputsToStr() {
       result = StringConcatenate("modified input: ",
 
                                  ifString(s.Trade.StartMode        == ss.Trade.StartMode,        "", s.Trade.StartMode       ),
-                                 ifString(s.Trade.Restless         == ss.Trade.Restless,         "", s.Trade.Restless        ),
                                  ifString(s.Trade.Reverse          == ss.Trade.Reverse,          "", s.Trade.Reverse         ),
+                                 ifString(s.Trade.StopAtTarget     == ss.Trade.StopAtTarget,     "", s.Trade.StopAtTarget    ),
 
                                  ifString(s.Lots.StartSize         == ss.Lots.StartSize,         "", s.Lots.StartSize        ),
                                  ifString(s.Lots.StartVola.Percent == ss.Lots.StartVola.Percent, "", s.Lots.StartVola.Percent),
@@ -932,8 +930,8 @@ string InputsToStr() {
    }
 
    ss.Trade.StartMode        = s.Trade.StartMode;
-   ss.Trade.Restless         = s.Trade.Restless;
    ss.Trade.Reverse          = s.Trade.Reverse;
+   ss.Trade.StopAtTarget     = s.Trade.StopAtTarget;
 
    ss.Lots.StartSize         = s.Lots.StartSize;
    ss.Lots.StartVola.Percent = s.Lots.StartVola.Percent;
