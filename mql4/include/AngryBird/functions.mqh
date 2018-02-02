@@ -113,7 +113,7 @@ double SetPositionPlPip(double value) {
 
       if (value == EMPTY_VALUE) {
          SetPositionPlPipMin(value);
-         SetPositionPlPipMin(value);
+         SetPositionPlPipMax(value);
       }
       else {
          if (value < position.plPipMin || position.plPipMin==EMPTY_VALUE) SetPositionPlPipMin(value);
@@ -182,11 +182,11 @@ double SetPositionPlUPip(double value) {
 
       if (value == EMPTY_VALUE) {
          SetPositionPlUPipMin(value);
-         SetPositionPlUPipMin(value);
+         SetPositionPlUPipMax(value);
       }
       else {
-         if (value < position.plUPipMin || position.plUPipMin==EMPTY_VALUE) SetPositionPlPipMin(value);
-         if (value > position.plUPipMax || position.plUPipMax==EMPTY_VALUE) SetPositionPlPipMax(value);
+         if (value < position.plUPipMin || position.plUPipMin==EMPTY_VALUE) SetPositionPlUPipMin(value);
+         if (value > position.plUPipMax || position.plUPipMax==EMPTY_VALUE) SetPositionPlUPipMax(value);
       }
    }
    return(value);

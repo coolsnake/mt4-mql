@@ -109,11 +109,11 @@ double position.plPct       = EMPTY_VALUE;   // current PL in percent
 double position.plPctMin    = EMPTY_VALUE;   // min. PL in percent
 double position.plPctMax    = EMPTY_VALUE;   // max. PL in percent
 
-double position.cumStartEquity;              // equity in account currency after the last winner
-double position.cumPl       = EMPTY_VALUE;   // total PL in account currency since the last winner
-double position.cumPlPct    = EMPTY_VALUE;   // total PL in percent since the last winner
-double position.cumPlPctMin = EMPTY_VALUE;   // total min. PL in percent since the last winner
-double position.cumPlPctMax = EMPTY_VALUE;   // total max. PL in percent since the last winner
+double position.cumStartEquity;              // equity in account currency at start of trading
+double position.cumPl;                       // total PL in account currency since start of trading
+double position.cumPlPct    = EMPTY_VALUE;   // total PL in percent since start of trading
+double position.cumPlPctMin = EMPTY_VALUE;   // total min. PL in percent since start of trading
+double position.cumPlPctMax = EMPTY_VALUE;   // total max. PL in percent since start of trading
 
 bool   exit.trailStop;
 double exit.trailLimitPrice;                 // price limit to start trailing the current position's stops
@@ -408,8 +408,7 @@ bool CheckOpenPositions() {
       log("CheckOpenPositions(1)  TP hit:  level="+ position.level +"  pct="+ DoubleToStr(position.cumPlPct, 2) +"%  min="+ DoubleToStr(position.cumPlPctMin, 2) +"%");
 
       if (!Trade.StopAtTarget) {                                  // continue trading?
-         resetCumulated = true;
-         InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
+         InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING);
          return(false);
       }
    }
@@ -424,8 +423,7 @@ bool CheckOpenPositions() {
       SetPositionCumPlPct(position.cumPl / position.cumStartEquity * 100);
       log("CheckOpenPositions(2)  SL("+ StopLoss.Percent +"%) hit:  level="+ position.level);
 
-      resetCumulated = false;                                     // always continue trading after a loser
-      InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING, resetCumulated);
+      InitSequenceStatus(chicken.mode, "auto", STATUS_STARTING);
       return(false);
    }
 
@@ -584,14 +582,14 @@ void TrailProfits() {
 /**
  * Reset and initialize all non-constant runtime variables for the next sequence.
  *
- * @param  string startMode          - "long"|"short"|"headless"|"legless"
- * @param  string direction          - "long"|"short"|"auto"
- * @param  int    status             - sequence status
- * @param  bool   resetCumulatedData - whether or not to reset cumulated data
+ * @param  string startMode                     - "long"|"short"|"headless"|"legless"
+ * @param  string direction                     - "long"|"short"|"auto"
+ * @param  int    status                        - sequence status
+ * @param  bool   resetCumulatedData [optional] - whether or not to reset cumulated data (default: no)
  *
  * @return bool - success status
  */
-bool InitSequenceStatus(string startMode, string direction, int status, bool resetCumulatedData) {
+bool InitSequenceStatus(string startMode, string direction, int status, bool resetCumulatedData = false) {
    string modes[] = {"long", "short", "headless", "legless"};
    if (!StringInArray(modes, startMode))      return(!catch("InitSequenceStatus(1)  Invalid parameter startMode: "+ DoubleQuoteStr(startMode), ERR_INVALID_PARAMETER));
    string directions[] = {"long", "short", "auto"};

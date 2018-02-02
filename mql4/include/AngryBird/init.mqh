@@ -24,8 +24,7 @@ int onInit_User() {
       string startMode      = StringToLower(Trade.StartMode);
       string startDirection = ifString(startMode=="headless" || startMode=="legless", "auto", startMode);
       int    status         = ifInt   (startMode=="legless", STATUS_PENDING, STATUS_STARTING);
-      bool   resetCumulated = true;
-      InitSequenceStatus(startMode, startDirection, status, resetCumulated);
+      InitSequenceStatus(startMode, startDirection, status);
 
       // confirm a headless chicken in Martingale mode
       if (!Trade.Reverse && chicken.mode=="headless" && !IsTesting())
