@@ -317,7 +317,7 @@ double CalculateLotsize(int level) {
    double ratio = result / calculated;
    if (ratio > 1.15) {                                                           // ask for confirmation if the resulting lotsize > 15% from the calculation
       static bool lotsConfirmed = false;
-      if (!position.cumPl && !lotsConfirmed) {                                   // ask only before the very first trade
+      if (!lotsConfirmed && !grid.level && !position.cumPl) {                    // ask only before the very first trade
          PlaySoundEx("Windows Notify.wav");
          string msg = "The lot size for level "+ level +" substantially deviates from the calculation: "+ NumberToStr(result, ".+") +" instead of "+ NumberToStr(calculated, ".+");
          int button = MessageBoxEx(__NAME__ +" - CalculateLotsize()", ifString(IsDemoFix(), "", "- Real Account -\n\n") + msg, MB_ICONQUESTION|MB_OKCANCEL);
