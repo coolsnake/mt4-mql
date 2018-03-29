@@ -28,7 +28,7 @@ extern int    Trail_Stop_Jump_Pips = 10;                                   // Tr
 extern string Averaging.Type       = "Pyramid | Average | Both*";          // averaging type for splitting positions
 extern string Indicators           = "--------------------";               // Signal Multiple Indicators
 extern int    loop_back_bars       = 2;                                    // Loop Back Bars (0 to disable)
-extern string Lookback.PriceType   = "Close | High-Low*";                  // Price Type of Loop Back Bars
+extern string Lookback.PriceType   = "Close | High/Low*";                  // Price Type of Loop Back Bars
 extern bool   RSI                  = false;                                // Relative Strength Index (RSI)
 extern bool   RVI                  = false;                                // Relative Vigor Index (RVI)
 extern bool   CCI                  = false;                                // Commodity Channel Index (CCI)
@@ -92,7 +92,7 @@ int      err_num;
 
 
 /**
- * Initialization.
+ * Initialization
  *
  * @return int - error status
  */
@@ -122,7 +122,9 @@ int onInit() {
    }
    sValue = StringTrim(sValue);
    if      (StringStartsWith("close",    sValue)) { price_type = TPRICE_CLOSE;   Lookback.PriceType = "Close"; }
-   else if (StringStartsWith("high-low", sValue)) { price_type = TPRICE_HIGHLOW; Lookback.PriceType = "High-Low"; }
+   else if (StringStartsWith("highlow",  sValue)) { price_type = TPRICE_HIGHLOW; Lookback.PriceType = "High/Low"; }
+   else if (StringStartsWith("high-low", sValue)) { price_type = TPRICE_HIGHLOW; Lookback.PriceType = "High/Low"; }
+   else if (StringStartsWith("high/low", sValue)) { price_type = TPRICE_HIGHLOW; Lookback.PriceType = "High/Low"; }
    else                                          return(catch("onInit(3)  Invalid input parameter Lookback.PriceType = "+ DoubleQuoteStr(Lookback.PriceType), ERR_INVALID_INPUT_PARAMETER));
 
    // MA.Method
@@ -153,14 +155,14 @@ int onInit() {
    if (min_lot == 0.1)  lot_decimals = 1;
    if (min_lot == 1)    lot_decimals = 0;
 
-   if (invalid_pair(Major_Code))                              return(catch("onInit(3)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(UJ_Code))                                 return(catch("onInit(4)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(JPY_Cross))                               return(catch("onInit(5)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (time_frame < Period())                                 return(catch("onInit(6)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
-   if (BE_Pips > Trail_Stop_Pips && Trail_Stop_Pips > 0)      return(catch("onInit(7)  Breakeven pips ("+ BE_Pips +") is greater than trailing stop ("+ Trail_Stop_Pips +")", ERR_INVALID_INPUT_PARAMETER));
-   if (!loop_back_bars && !MA_Period && !RSI && !RVI && !CCI) return(catch("onInit(8)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(Major_Code))                              return(catch("onInit(6)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(UJ_Code))                                 return(catch("onInit(7)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(JPY_Cross))                               return(catch("onInit(8)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (time_frame < Period())                                 return(catch("onInit(9)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
+   if (BE_Pips > Trail_Stop_Pips && Trail_Stop_Pips > 0)      return(catch("onInit(10)  Breakeven pips ("+ BE_Pips +") is greater than trailing stop ("+ Trail_Stop_Pips +")", ERR_INVALID_INPUT_PARAMETER));
+   if (!loop_back_bars && !MA_Period && !RSI && !RVI && !CCI) return(catch("onInit(11)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
 
-   return(catch("onInit(9)"));
+   return(catch("onInit(12)"));
 }
 
 
@@ -656,14 +658,21 @@ void trail_stop() {
 
 
 /**
+ * Whether or not a symbol is subscribed. A symbol is subscribed if it's visible in the MarketWatch window.
  *
+ * @param  string symbol
+ *
+ * @return bool
  */
-bool invalid_pair(string pair) {
+bool invalid_pair(string symbol) {
+   /*
+   // MQL5:
    for (int i=0; i < SymbolsTotal(true); i++) {
-      if (SymbolName(i, true) == pair)
+      if (SymbolName(i, true) == symbol)
          return(false);
    }
-   return(true);
+   */
+   return(!MarketInfo(symbol, MODE_TIME) || GetLastError());
 }
 
 
@@ -764,4 +773,8 @@ void move_to_PL() {
          }
       }
    }
+   return;
+
+   // suppress compiler warnings
+   current_order_type();
 }
