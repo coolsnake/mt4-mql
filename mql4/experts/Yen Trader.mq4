@@ -343,9 +343,9 @@ int onTick() {
          }
       }
       /*
-      // commented by abokwait
+      // originally commented by abokwaik
       else {
-         if (current_order_type() == OP_BUY) {
+         if (GetOldestOpenPositionType() == OP_BUY) {
             if (major_pos=="L" && (maj_pips<-1*maj_atr*atr_multi || uj_pips<-1*uj_atr*atr_multi)) {
                close_current_orders(OP_BUY);
                //market_sell_order();
@@ -355,7 +355,7 @@ int onTick() {
                //market_sell_order();
             }
          }
-         if (current_order_type() == OP_SELL) {
+         if (GetOldestOpenPositionType() == OP_SELL) {
             if (major_pos=="L" && (maj_pips>maj_atr*atr_multi || uj_pips>uj_atr*atr_multi)) {
                close_current_orders(OP_SELL);
                //market_buy_order();
@@ -369,11 +369,15 @@ int onTick() {
       */
       bar_time = Time[0];
    }
+
+   return(catch("onTick(1)"));
 }
 
 
 /**
+ * Count the number of open positions of the strategy.
  *
+ * @return int - number of open positions or EMPTY (-1) in case of errors
  */
 int total_orders() {
    int tot_orders = 0;
@@ -384,12 +388,17 @@ int total_orders() {
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && (OrderType()==OP_BUY || OrderType()==OP_SELL))
          tot_orders++;
    }
-   return(tot_orders);
+
+   if (!catch("tot_orders(1)"))
+      return(tot_orders);
+   return(EMPTY);
 }
 
 
 /**
+ * Submit a Buy Market order.
  *
+ * @return int - order ticket or NULL in case of errors
  */
 int market_buy_order() {
    double rem=0; bool x=false;
@@ -450,12 +459,16 @@ int market_buy_order() {
       tries=tries+1;
    }
 
-   return(NewOrder);
+   if (!catch("market_buy_order(1)"))
+      return(NewOrder);
+   return(NULL);
 }
 
 
 /**
+ * Submit a Sell Market order.
  *
+ * @return int - order ticket or NULL in case of errors
  */
 int market_sell_order() {
    double rem=0; bool x=false;
@@ -519,16 +532,19 @@ int market_sell_order() {
       tries=tries+1;
    }
 
-
-
-   return(NewOrder);
+   if (!catch("market_sell_order(1)"))
+      return(NewOrder);
+   return(NULL);
 }
 
 
 /**
+ * Return the order type of the oldest open position.
  *
+ * @return int - order type or EMPTY (-1) if no open position exists;
+ *               EMPTY_VALUE in case of errors
  */
-int current_order_type() {
+int GetOldestOpenPositionType() {
    int ord_type = -1;
 
    for (int i=0; i < OrdersTotal(); i++) {
@@ -539,26 +555,38 @@ int current_order_type() {
          ord_type = OrderType();
       }
    }
-   return(ord_type);
+
+   if (!catch("GetOldestOpenPositionType(1)"))
+      return(ord_type);
+   return(EMPTY_VALUE);
 }
 
 
 /**
+ * Whether or not an open ticket of the specified order type exists.
  *
+ * @return bool
  */
 bool exist_order(int ord_type) {
+   bool result = false;
+
    for (int i=0; i < OrdersTotal(); i++) {
       if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          break;
-      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && OrderType()==ord_type)
-         return(true);
+      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && OrderType()==ord_type) {
+         result = true;
+         break;
+      }
    }
+
+   if (!catch("exist_order(1)"))
+      return(result);
    return(false);
 }
 
 
 /**
- *
+ * Close all open positions of the specified type.
  */
 void close_current_orders(int ord_type) {
    int  k = -1;
@@ -594,11 +622,12 @@ void close_current_orders(int ord_type) {
          tries++;
       }
     }
+    catch("close_current_orders(1)");
 }
 
 
 /**
- *
+ * Trail stops of matching open positions.
  */
 void trail_stop() {
    double new_sl=0; bool OrderMod=false;
@@ -626,9 +655,7 @@ void trail_stop() {
                OrderMod=OrderModify(OrderTicket(),OrderOpenPrice(),new_sl,OrderTakeProfit(),0,White);
                if(!OrderMod) err_num=GetLastError();
                if(err_num!=ERR_NO_ERROR) Print("Order SL Modify Error: ",ErrorDescription(err_num));
-
                tries=tries+1;
-
             }
 
          }
@@ -647,13 +674,11 @@ void trail_stop() {
                if(!OrderMod) err_num=GetLastError();
                if(err_num!=ERR_NO_ERROR) Print("Order SL Modify Error: ",ErrorDescription(err_num));
                tries=tries+1;
-
             }
-
          }
-
       }
    }
+   catch("trail_stop(1)");
 }
 
 
@@ -665,19 +690,20 @@ void trail_stop() {
  * @return bool
  */
 bool invalid_pair(string symbol) {
-   /*
-   // MQL5:
-   for (int i=0; i < SymbolsTotal(true); i++) {
-      if (SymbolName(i, true) == symbol)
-         return(false);
-   }
-   */
    return(!MarketInfo(symbol, MODE_TIME) || GetLastError());
+
+   //original MQL5:
+   //
+   //for (int i=0; i < SymbolsTotal(true); i++) {
+   //   if (SymbolName(i, true) == symbol)
+   //      return(false);
+   //}
+   //return(true);
 }
 
 
 /**
- *
+ * Move stops of matching open positions to Breakeven.
  */
 void move_to_BE() {
    double new_sl   = 0;
@@ -721,11 +747,12 @@ void move_to_BE() {
          }
       }
    }
+   catch("move_to_BE(1)");
 }
 
 
 /**
- *
+ * Move stops of matching open positions to Breakeven + a defined amount of profit.
  */
 void move_to_PL() {
    double new_sl=0; bool OrderMod=false;
@@ -773,8 +800,10 @@ void move_to_PL() {
          }
       }
    }
+   catch("move_to_PL(1)");
+
    return;
 
    // suppress compiler warnings
-   current_order_type();
+   GetOldestOpenPositionType();
 }
