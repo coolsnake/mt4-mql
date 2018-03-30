@@ -52,32 +52,16 @@ int      entry_type;                         // averaging type
 int      price_type;                         // price type of lookback bars
 int      MA_Method;                          // moving average method
 
-int      last_type = -1;
-datetime bar_time, p_time;
-int      ord_arr[100];
-double   sell_price, buy_price, stop_loss, profit_target;
-bool     OrderSelected, OrderDeleted, order_mod;
-int      NewOrder;
-int      tries, oper_max_tries = 3;
-double   sl_price, tp_price, Lot_Size, ord_price;
-int      trail_stop_pips;
-int      tkt_num;
-int      trend_tf;
-bool     buy, sell;
-double   sma, macd, rsi, min_lot;
-int      lot_decimals = 2;
-double   maj_pips, uj_pips, ma;
-string   maj_dir, uj_dir;
+datetime bar_time;
 double   ind1, ind2, sig1, sig2;
-int      err_num;
+int      order_max_tries = 3;
 
+#define ENTRY_PYRAMID   1                    // pyramiding
+#define ENTRY_AVERAGE   2                    // averaging
+#define ENTRY_BOTH      3                    // both
 
-#define ENTRY_PYRAMID   1              // pyramiding
-#define ENTRY_AVERAGE   2              // averaging
-#define ENTRY_BOTH      3              // both
-
-#define TPRICE_CLOSE    1              // close price
-#define TPRICE_HIGHLOW  2              // high/low price
+#define TPRICE_CLOSE    1                    // close price
+#define TPRICE_HIGHLOW  2                    // high/low price
 
 
 /**
@@ -128,12 +112,8 @@ int onInit() {
 
 
 
-   // legacy source
-   min_lot = MarketInfo(Symbol(), MODE_MINLOT);
-   if (min_lot == 0.01) lot_decimals = 2;
-   if (min_lot == 0.1)  lot_decimals = 1;
-   if (min_lot == 1)    lot_decimals = 0;
 
+   // legacy code
    if (invalid_pair(Major_Code))                             return(catch("onInit(5)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
    if (invalid_pair(UJ_Code))                                return(catch("onInit(6)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
    if (invalid_pair(JPY_Cross))                              return(catch("onInit(7)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
@@ -157,6 +137,8 @@ int onTick() {
 
    if (Time[0] > bar_time) {
       if (total_orders() < max_orders) {
+         bool buy, sell;
+
          if (lookback_bars > 1) {
             if (price_type == TPRICE_HIGHLOW) {
                buy = (major_pos == "L"
@@ -218,71 +200,39 @@ int onTick() {
          if (CCI) {
             ind1 = iCCI(Major_Code, time_frame, 14, PRICE_TYPICAL, 1);
             ind2 = iCCI(UJ_Code,    time_frame, 14, PRICE_TYPICAL, 1);
-            buy=buy &&
-                (
-                (ind1>0 && major_pos=="L")
-                ||
-                (ind1<0 && major_pos=="R")
-                )
-                && ind2>0;
-            sell=sell &&
-                 (
-                 (ind1<0 && major_pos=="L")
-                 ||
-                 (ind1>0 && major_pos=="R")
-                 )
-
-                 && ind2<0;
+            buy  = buy  && ind2 > 0 && ((major_pos=="L" && ind1 > 0)
+                                     || (major_pos=="R" && ind1 < 0));
+            sell = sell && ind2 < 0 && ((major_pos=="L" && ind1 < 0)
+                                     || (major_pos=="R" && ind1 > 0));
          }
 
          if (RVI) {
-            ind1=iRVI(Major_Code,time_frame,10,MODE_MAIN,1);
-            ind2=iRVI(UJ_Code,time_frame,10,MODE_MAIN,1);
-            sig1=iRVI(Major_Code,time_frame,10,MODE_SIGNAL,1);
-            sig2=iRVI(UJ_Code,time_frame,10,MODE_SIGNAL,1);
-            buy=buy &&
-                (
-                (ind1>sig1 && major_pos=="L")
-                ||
-                (ind1<sig1 && major_pos=="R")
-                )
-                && ind2>sig2;
-            sell=sell &&
-                 (
-                 (ind1<sig1 && major_pos=="L")
-                 ||
-                 (ind1>sig1 && major_pos=="R")
-                 )
-                 && ind2<sig2;
+            ind1 = iRVI(Major_Code, time_frame, 10, MODE_MAIN,   1);
+            sig1 = iRVI(Major_Code, time_frame, 10, MODE_SIGNAL, 1);
+            ind2 = iRVI(UJ_Code,    time_frame, 10, MODE_MAIN,   1);
+            sig2 = iRVI(UJ_Code,    time_frame, 10, MODE_SIGNAL, 1);
+            buy  = buy  && ind2 > sig2 && ((major_pos=="L" && ind1 > sig1)
+                                        || (major_pos=="R" && ind1 < sig1));
+            sell = sell && ind2 < sig2 && ((major_pos=="L" && ind1 < sig1)
+                                        || (major_pos=="R" && ind1 > sig1));
          }
 
          if (MA_Period > 0) {
-            ind1=iMA(Major_Code,time_frame,MA_Period,0,MA_Method,PRICE_CLOSE,1);
-            ind2=iMA(UJ_Code,time_frame,MA_Period,0,MA_Method,PRICE_CLOSE,1);
-            buy=buy &&
-                (
-                (iClose(Major_Code,time_frame,1)>ind1 && major_pos=="L")
-                ||
-                (iClose(Major_Code,time_frame,1)<ind1 && major_pos=="R")
-                )
-                && iClose(UJ_Code,time_frame,1)>ind2;
-            sell=sell &&
-                 (
-                 (iClose(Major_Code,time_frame,1)<ind1 && major_pos=="L")
-                 ||
-                 (iClose(Major_Code,time_frame,1)>ind1 && major_pos=="R")
-                 )
-
-                 && iClose(UJ_Code,time_frame,1)<ind2;
+            ind1 = iMA(Major_Code, time_frame, MA_Period, 0, MA_Method, PRICE_CLOSE, 1);
+            ind2 = iMA(UJ_Code,    time_frame, MA_Period, 0, MA_Method, PRICE_CLOSE, 1);
+            buy  = buy  && iClose(UJ_Code, time_frame, 1) > ind2 && ((major_pos=="L" && iClose(Major_Code, time_frame, 1) > ind1)
+                                                                  || (major_pos=="R" && iClose(Major_Code, time_frame, 1) < ind1));
+            sell = sell && iClose(UJ_Code, time_frame, 1) < ind2 && ((major_pos=="L" && iClose(Major_Code, time_frame, 1) < ind1)
+                                                                  || (major_pos=="R" && iClose(Major_Code, time_frame, 1) > ind1));
          }
 
          if (buy) {
-            if(close_on_opposite) close_current_orders(OP_SELL);
-            if(hedge_trades || (!hedge_trades && !exist_order(OP_SELL))) market_buy_order();
+            if (close_on_opposite)                     close_current_orders(OP_SELL);
+            if (hedge_trades || !exist_order(OP_SELL)) market_buy_order();
          }
          if (sell) {
-            if(close_on_opposite) close_current_orders(OP_BUY);
-            if(hedge_trades || (!hedge_trades && !exist_order(OP_BUY))) market_sell_order();
+            if (close_on_opposite)                    close_current_orders(OP_BUY);
+            if (hedge_trades || !exist_order(OP_BUY)) market_sell_order();
          }
       }
       bar_time = Time[0];
@@ -298,99 +248,64 @@ int onTick() {
  * @return int - number of open positions or EMPTY (-1) in case of errors
  */
 int total_orders() {
-   int tot_orders = 0;
+   int positions, orders = OrdersTotal();
 
-   for (int i=0; i < OrdersTotal(); i++) {
+   for (int i=0; i < orders; i++) {
       if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          break;
-      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && (OrderType()==OP_BUY || OrderType()==OP_SELL))
-         tot_orders++;
+      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && OrderType()<=OP_SELL)
+         positions++;
    }
 
-   if (!catch("tot_orders(1)"))
-      return(tot_orders);
+   if (!catch("total_orders(1)"))
+      return(positions);
    return(EMPTY);
 }
 
 
 /**
  * Submit a Buy Market order.
- *
- * @return int - order ticket or NULL in case of errors
  */
-int market_buy_order() {
-   double rem=0; bool x=false;
-   NewOrder=0;
-   tries=0;
-   double x_lots=0;
-   if (Fixed_Lot_Size > 0) Lot_Size=Fixed_Lot_Size;
-   else
-   {
-      Lot_Size=NormalizeDouble((AccountBalance()*Bal_Perc_Lot_Size/100)/MarketInfo(Symbol(),MODE_MARGINREQUIRED),lot_decimals);
-   }
-   if(SL_Pips==0) sl_price=0;
-   else sl_price = MarketInfo(Symbol(),MODE_ASK)-SL_Pips*Point;
-   if(TP_Pips==0) tp_price=0;
-   else tp_price=MarketInfo(Symbol(),MODE_ASK)+TP_Pips*Point;
+void market_buy_order() {
+   double lots, takeprofit, stoploss;
 
-   while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
-   {
-         NewOrder=OrderSend(Symbol(),OP_BUY,Lot_Size,MarketInfo(Symbol(),MODE_ASK),max_slippage,
-                         sl_price,
-                         tp_price,
-                         "YT5",Magic_Number,0,Blue);
-        if(NewOrder<0)
-        {
-            err_num=GetLastError();
-            if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Buy Order : ",ErrorDescription(err_num));
-        }
-      tries=tries+1;
-   }
+   if (Fixed_Lot_Size > 0) lots = Fixed_Lot_Size;
+   else                    lots = NormalizeLots(AccountBalance() * Bal_Perc_Lot_Size/100 / MarketInfo(Symbol(), MODE_MARGINREQUIRED));
 
-   if (!catch("market_buy_order(1)"))
-      return(NewOrder);
-   return(NULL);
+   if (TP_Pips > 0) takeprofit = Ask + TP_Pips*Point;
+   if (SL_Pips > 0) stoploss   = Ask - SL_Pips*Point;
+
+   int tries = 0;
+   while (tries < order_max_tries && MarketInfo(Symbol(), MODE_ASK)-MarketInfo(Symbol(), MODE_BID) <= max_spread*Point) {
+      if (OrderSend(Symbol(), OP_BUY, lots, MarketInfo(Symbol(), MODE_ASK), max_slippage, stoploss, takeprofit, "YT", Magic_Number, 0, Blue) > 0)
+         break;
+      warn("market_buy_order(1)  Error in Sending a Buy Order", GetLastError());
+      tries++;
+   }
+   catch("market_buy_order(2)");
 }
 
 
 /**
  * Submit a Sell Market order.
- *
- * @return int - order ticket or NULL in case of errors
  */
-int market_sell_order() {
-   double rem=0; bool x=false;
-   NewOrder=0;
-   tries=0;
-   double x_lots=0;
-   if (Fixed_Lot_Size > 0) Lot_Size=Fixed_Lot_Size;
-   else
-   {
-      Lot_Size=NormalizeDouble((AccountBalance()*Bal_Perc_Lot_Size/100)/MarketInfo(Symbol(),MODE_MARGINREQUIRED),lot_decimals);
+void market_sell_order() {
+   double lots, takeprofit, stoploss;
+
+   if (Fixed_Lot_Size > 0) lots = Fixed_Lot_Size;
+   else                    lots = NormalizeLots(AccountBalance() * Bal_Perc_Lot_Size/100 / MarketInfo(Symbol(), MODE_MARGINREQUIRED));
+
+   if (TP_Pips > 0) takeprofit = Bid - TP_Pips*Point;
+   if (SL_Pips > 0) stoploss   = Bid + SL_Pips*Point;
+
+   int tries = 0;
+   while (tries < order_max_tries && MarketInfo(Symbol(), MODE_ASK)-MarketInfo(Symbol(), MODE_BID) <= max_spread*Point) {
+      if (OrderSend(Symbol(), OP_SELL, lots, MarketInfo(Symbol(), MODE_BID), max_slippage, stoploss, takeprofit, "YT", Magic_Number, 0, Red) > 0)
+         break;
+      warn("market_sell_order(1)  Error in Sending a Sell Order", GetLastError());
+      tries++;
    }
-
-   if(SL_Pips==0) sl_price=0;
-   else sl_price = MarketInfo(Symbol(),MODE_BID)+SL_Pips*Point;
-   if(TP_Pips==0) tp_price=0;
-   else tp_price=MarketInfo(Symbol(),MODE_BID)-TP_Pips*Point;
-
-   while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
-   {
-         NewOrder=OrderSend(Symbol(),OP_SELL,Lot_Size,MarketInfo(Symbol(),MODE_BID),max_slippage,
-                            sl_price,
-                            tp_price,
-                            "YT5",Magic_Number,0,Red);
-        if(NewOrder<0)
-        {
-            err_num=GetLastError();
-            if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Sell Order : ",ErrorDescription(err_num));
-        }
-      tries=tries+1;
-   }
-
-   if (!catch("market_sell_order(1)"))
-      return(NewOrder);
-   return(NULL);
+   catch("market_sell_order(2)");
 }
 
 
@@ -400,9 +315,10 @@ int market_sell_order() {
  * @return bool
  */
 bool exist_order(int ord_type) {
+   int  orders = OrdersTotal();
    bool result = false;
 
-   for (int i=0; i < OrdersTotal(); i++) {
+   for (int i=0; i < orders; i++) {
       if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          break;
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && OrderType()==ord_type) {
@@ -421,40 +337,21 @@ bool exist_order(int ord_type) {
  * Close all open positions of the specified type.
  */
 void close_current_orders(int ord_type) {
-   int  k = -1;
-   bool x = false;
-
-   for (int j=0; j < 100; j++) {
-      ord_arr[j] = 0;
-   }
-
-   int ot = OrdersTotal();
-
-   for (j=0; j < ot; j++) {
-      if (!OrderSelect(j,SELECT_BY_POS,MODE_TRADES))
+   for (int i=OrdersTotal()-1; i >= 0; i--) {
+      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
          break;
 
-      if (OrderSymbol()==Symbol() && OrderMagicNumber()==Magic_Number) {
-         if (OrderType() == ord_type) {
-            k++;
-            ord_arr[k] = OrderTicket();
+      if (OrderSymbol()==Symbol() && OrderMagicNumber()==Magic_Number && OrderType()==ord_type) {
+         int tries = 0;
+         while (tries < order_max_tries) {
+            double price = MarketInfo(Symbol(), ifInt(OrderType()==OP_BUY, MODE_BID, MODE_ASK));
+            if (OrderClose(OrderTicket(), OrderLots(), price, 100, NULL))
+               break;
+            warn("close_current_orders(1)  OrderClose() error", GetLastError());
          }
       }
    }
-
-   for (j=0; j <= k; j++) {
-      bool OrderClosed = false;
-      tries = 0;
-
-      while (!OrderClosed && tries < oper_max_tries) {
-         RefreshRates();
-         x = OrderSelect(ord_arr[j], SELECT_BY_TICKET, MODE_TRADES);
-         if (OrderType() == OP_SELL) OrderClosed = OrderClose(ord_arr[j], OrderLots(), MarketInfo(Symbol(), MODE_ASK), 100, NULL);
-         if (OrderType() == OP_BUY ) OrderClosed = OrderClose(ord_arr[j], OrderLots(), MarketInfo(Symbol(), MODE_BID), 100, NULL);
-         tries++;
-      }
-    }
-    catch("close_current_orders(1)");
+   catch("close_current_orders(2)");
 }
 
 
@@ -462,53 +359,53 @@ void close_current_orders(int ord_type) {
  * Trail stops of matching open positions.
  */
 void trail_stop() {
-   double new_sl=0; bool OrderMod=false;
-   trail_stop_pips=Trail_Stop_Pips;
+   if (!Trail_Stop_Pips)
+      return;
 
-   if (trail_stop_pips==0) return;
-   for(int i=0;i<OrdersTotal();i++)
-   {
-      if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) break;
-      if(OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol())
-      {
-         if(OrderType()==OP_BUY)
-         {  new_sl=0;
-            if(MarketInfo(Symbol(),MODE_BID)-OrderOpenPrice()>trail_stop_pips*Point && (OrderOpenPrice()>OrderStopLoss()||OrderStopLoss()==0))
-               new_sl=OrderOpenPrice()+Point;
-            if (MarketInfo(Symbol(),MODE_BID)-OrderStopLoss()>(trail_stop_pips*Point+Trail_Stop_Jump_Pips*Point) && OrderStopLoss()>OrderOpenPrice())
-               new_sl = MarketInfo(Symbol(),MODE_BID)-trail_stop_pips*Point;
-            OrderMod=false;
-            tries=0;
+   double stoploss;
+   int tries, orders = OrdersTotal();
 
-             while(!OrderMod && tries<oper_max_tries && new_sl>0 && new_sl>OrderStopLoss())
-            {
-               OrderMod=OrderModify(OrderTicket(),OrderOpenPrice(),new_sl,OrderTakeProfit(),0,White);
-               if(!OrderMod) err_num=GetLastError();
-               if(err_num!=ERR_NO_ERROR) Print("Order SL Modify Error: ",ErrorDescription(err_num));
-               tries=tries+1;
+   for (int i=0; i < orders; i++) {
+      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+         break;
+
+      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
+         RefreshRates();
+
+         if (OrderType() == OP_BUY) {
+            stoploss = 0;
+            if (Bid - OrderOpenPrice() > Trail_Stop_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() > OrderStopLoss()))
+               stoploss = OrderOpenPrice() + Point;
+
+            if (Bid - OrderStopLoss() > (Trail_Stop_Pips + Trail_Stop_Jump_Pips)*Point && OrderStopLoss() > OrderOpenPrice())
+               stoploss = Bid - Trail_Stop_Pips*Point;
+
+            tries = 0;
+            while (tries < order_max_tries && stoploss > OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("trail_stop(1)  Order SL Modify Error", GetLastError());
+               tries++;
             }
-
          }
-         if(OrderType()==OP_SELL)
-         {   new_sl=0;
-             if(OrderOpenPrice()-MarketInfo(Symbol(),MODE_ASK)>trail_stop_pips*Point && (OrderOpenPrice()<OrderStopLoss()||OrderStopLoss()==0))
-               new_sl=OrderOpenPrice()-Point;
-             if(OrderStopLoss()-MarketInfo(Symbol(),MODE_ASK)>trail_stop_pips*Point+Trail_Stop_Jump_Pips*Point && OrderStopLoss()<OrderOpenPrice())
-               new_sl=MarketInfo(Symbol(),MODE_ASK)+trail_stop_pips*Point;
-             OrderMod=false;
-             tries=0;
+         if (OrderType() == OP_SELL) {
+            stoploss = 0;
+            if (OrderOpenPrice()-Ask > Trail_Stop_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() < OrderStopLoss()))
+               stoploss = OrderOpenPrice() - Point;
+            if (OrderStopLoss() - Ask > (Trail_Stop_Pips + Trail_Stop_Jump_Pips)*Point && OrderStopLoss() < OrderOpenPrice())
+               stoploss = Ask + Trail_Stop_Pips*Point;
 
-             while(!OrderMod && tries<oper_max_tries && new_sl>0 && new_sl<OrderStopLoss())
-            {
-               OrderMod=OrderModify(OrderTicket(),OrderOpenPrice(),new_sl,OrderTakeProfit(),0,White);
-               if(!OrderMod) err_num=GetLastError();
-               if(err_num!=ERR_NO_ERROR) Print("Order SL Modify Error: ",ErrorDescription(err_num));
-               tries=tries+1;
+            tries = 0;
+            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("trail_stop(2)  Order SL Modify Error", GetLastError());
+               tries++;
             }
          }
       }
    }
-   catch("trail_stop(1)");
+   catch("trail_stop(3)");
 }
 
 
@@ -516,47 +413,48 @@ void trail_stop() {
  * Move stops of matching open positions to Breakeven.
  */
 void move_to_BE() {
-   double new_sl   = 0;
-   bool   OrderMod = false;
+   if (!BE_Pips)
+      return;
 
-   trail_stop_pips = BE_Pips;
-   if (!trail_stop_pips) return;
+   double stoploss;
+   int tries, orders = OrdersTotal();
 
-   for (int i=0; i < OrdersTotal(); i++) {
-      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES)) break;
+   for (int i=0; i < orders; i++) {
+      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+         break;
 
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
-         if (OrderType() == OP_BUY) {
-            new_sl = 0;
-            if (MarketInfo(Symbol(), MODE_BID)-OrderOpenPrice() > trail_stop_pips*Point && (OrderOpenPrice() > OrderStopLoss()|| !OrderStopLoss()))
-               new_sl = OrderOpenPrice() + trail_stop_pips*Point;
-            OrderMod = false;
-            tries    = 0;
+         RefreshRates();
 
-            while (!OrderMod && tries < oper_max_tries && new_sl > 0 && new_sl > OrderStopLoss()) {
-               OrderMod = OrderModify(OrderTicket(), OrderOpenPrice(), new_sl, OrderTakeProfit(), 0, White);
-               if (!OrderMod) err_num = GetLastError();
-               if (err_num != ERR_NO_ERROR) Print("Order move to BE Modify error: ", ErrorDescription(err_num));
+         if (OrderType() == OP_BUY) {
+            stoploss = 0;
+            if (Bid - OrderOpenPrice() > BE_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() > OrderStopLoss()))
+               stoploss = OrderOpenPrice() + BE_Pips*Point;
+
+            tries = 0;
+            while (tries < order_max_tries && stoploss > OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("move_to_BE(1)  Order move to BE Modify error", GetLastError());
                tries++;
             }
          }
          if (OrderType() == OP_SELL) {
-            new_sl = 0;
-            if (OrderOpenPrice()-MarketInfo(Symbol(), MODE_ASK) > trail_stop_pips*Point && (OrderOpenPrice() < OrderStopLoss() || !OrderStopLoss()))
-               new_sl = OrderOpenPrice() - trail_stop_pips*Point;
-            OrderMod = false;
-            tries    = 0;
+            stoploss = 0;
+            if (OrderOpenPrice() - Ask > BE_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() < OrderStopLoss()))
+               stoploss = OrderOpenPrice() - BE_Pips*Point;
 
-            while (!OrderMod && tries < oper_max_tries && new_sl > 0 && new_sl < OrderStopLoss()) {
-               OrderMod = OrderModify(OrderTicket(), OrderOpenPrice(), new_sl, OrderTakeProfit(), 0, White);
-               if (!OrderMod) err_num = GetLastError();
-               if (err_num != ERR_NO_ERROR) Print("Order move to BE Modify error: ", ErrorDescription(err_num));
+            tries = 0;
+            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("move_to_BE(2)  Order move to BE Modify error", GetLastError());
                tries++;
             }
          }
       }
    }
-   catch("move_to_BE(1)");
+   catch("move_to_BE(3)");
 }
 
 
@@ -564,51 +462,48 @@ void move_to_BE() {
  * Move stops of matching open positions to Breakeven + a defined amount of profit.
  */
 void move_to_PL() {
-   double new_sl=0; bool OrderMod=false;
-   trail_stop_pips=PL_Pips;
+   if (!PL_Pips)
+      return;
 
-   if(trail_stop_pips==0) return;
-   for(int i=0;i<OrdersTotal();i++)
-   {
-      if(OrderSelect(i,SELECT_BY_POS,MODE_TRADES)==false) break;
-      if(OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol())
-      {
-         if(OrderType()==OP_BUY)
-         {  new_sl=0;
-            if(MarketInfo(Symbol(),MODE_BID)-OrderOpenPrice()>trail_stop_pips*Point && OrderOpenPrice()<OrderStopLoss())
-               new_sl=OrderOpenPrice()+trail_stop_pips*Point;
-            OrderMod=false;
-            tries=0;
+   double stoploss;
+   int tries, orders = OrdersTotal();
 
-             while(!OrderMod && tries<oper_max_tries && new_sl>0 && new_sl>OrderStopLoss())
-            {
-               OrderMod=OrderModify(OrderTicket(),OrderOpenPrice(),new_sl,OrderTakeProfit(),0,White);
-               if(!OrderMod) err_num=GetLastError();
-               if(err_num!=ERR_NO_ERROR) Print("Order move to PL Modify Error: ",ErrorDescription(err_num));
+   for (int i=0; i < orders; i++) {
+      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+         break;
 
-               tries=tries+1;
+      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
+         RefreshRates();
 
+         if (OrderType() == OP_BUY) {
+            stoploss = 0;
+            if (Bid - OrderOpenPrice() > PL_Pips*Point && OrderOpenPrice() < OrderStopLoss())
+               stoploss = OrderOpenPrice() + PL_Pips*Point;
+
+            tries = 0;
+            while (tries < order_max_tries && stoploss && stoploss > OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("move_to_PL(1)  Order move to PL Modify Error", GetLastError());
+               tries++;
             }
-
          }
-         if(OrderType()==OP_SELL)
-         {   new_sl=0;
-             if(OrderOpenPrice()-MarketInfo(Symbol(),MODE_ASK)>trail_stop_pips*Point && OrderOpenPrice()>OrderStopLoss())
-               new_sl=OrderOpenPrice()-trail_stop_pips*Point;
-             OrderMod=false;
-             tries=0;
+         if (OrderType() == OP_SELL) {
+            stoploss = 0;
+            if (OrderOpenPrice() - Ask > PL_Pips*Point && OrderOpenPrice() > OrderStopLoss())
+               stoploss = OrderOpenPrice() - PL_Pips*Point;
 
-             while(!OrderMod && tries<oper_max_tries && new_sl>0 && new_sl<OrderStopLoss())
-            {
-               OrderMod=OrderModify(OrderTicket(),OrderOpenPrice(),new_sl,OrderTakeProfit(),0,White);
-               if(!OrderMod) err_num=GetLastError();
-               if(err_num!=ERR_NO_ERROR) Print("Order move to PL Modify Error: ",ErrorDescription(err_num));
-               tries=tries+1;
+            tries = 0;
+            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+                  break;
+               warn("move_to_PL(2)  Order move to PL Modify Error", GetLastError());
+               tries++;
             }
          }
       }
    }
-   catch("move_to_PL(1)");
+   catch("move_to_PL(3)");
 }
 
 
@@ -621,13 +516,5 @@ void move_to_PL() {
  */
 bool invalid_pair(string symbol) {
    return(!MarketInfo(symbol, MODE_TIME) || GetLastError());
-
-   //original MQL5:
-   //
-   //for (int i=0; i < SymbolsTotal(true); i++) {
-   //   if (SymbolName(i, true) == symbol)
-   //      return(false);
-   //}
-   //return(true);
 }
 
