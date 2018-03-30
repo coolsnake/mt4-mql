@@ -38,7 +38,6 @@ extern string trade_conditions     = "--------------------";               // Tr
 extern int    max_spread           = 100;                                  // Max Spread
 extern int    max_slippage         = 10;                                   // Max Slippage
 extern int    max_orders           = 10;                                   // Max Open Trades
-extern bool   ECN                  = false;                                // ECN Account
 extern bool   close_on_opposite    = false;                                // Close on Opposite Signal
 extern bool   hedge_trades         = true;                                 // Hedge on Opposite Signal
 extern string ATR_Levels           = "--------------------";               // ATR Setup
@@ -424,27 +423,6 @@ int market_buy_order() {
    }
    while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
    {
-      if(ECN)
-      {
-         NewOrder=OrderSend(Symbol(),OP_BUY,Lot_Size,MarketInfo(Symbol(),MODE_ASK),max_slippage,
-                         0,
-                         0,
-                         "YT5",Magic_Number,0,Blue);
-        if(NewOrder>0 && OrderSelect(NewOrder,SELECT_BY_TICKET,MODE_TRADES))
-        {
-            if(sl_price>0||tp_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),sl_price,tp_price,0, CLR_NONE);
-            //if(sl_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),sl_price,OrderTakeProfit(),0,clrNONE);
-            //if(tp_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),OrderStopLoss(),tp_price,0,clrNONE);
-        }
-        else
-        {
-            err_num=GetLastError();
-            if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Buy Order : ",ErrorDescription(err_num));
-        }
-
-      }
-      else
-      {
          NewOrder=OrderSend(Symbol(),OP_BUY,Lot_Size,MarketInfo(Symbol(),MODE_ASK),max_slippage,
                          sl_price,
                          tp_price,
@@ -454,8 +432,6 @@ int market_buy_order() {
             err_num=GetLastError();
             if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Buy Order : ",ErrorDescription(err_num));
         }
-
-      }
       tries=tries+1;
    }
 
@@ -495,29 +471,6 @@ int market_sell_order() {
 
    while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
    {
-      if(ECN)
-      {
-
-         NewOrder=OrderSend(Symbol(),OP_SELL,Lot_Size,MarketInfo(Symbol(),MODE_BID),max_slippage,
-                            0,
-                            0,
-                            "YT5",Magic_Number,0,Red);
-
-        if(NewOrder>0 && OrderSelect(NewOrder,SELECT_BY_TICKET,MODE_TRADES))
-        {
-            if(sl_price>0||tp_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),sl_price,tp_price,0, CLR_NONE);
-            //if(sl_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),sl_price,OrderTakeProfit(),0,clrNONE);
-            //if(tp_price>0) order_mod=OrderModify(NewOrder,OrderOpenPrice(),OrderStopLoss(),tp_price,0,clrNONE);
-        }
-        else
-        {
-            err_num=GetLastError();
-            if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Sell Order : ",ErrorDescription(err_num));
-        }
-
-      }
-      else
-      {
          NewOrder=OrderSend(Symbol(),OP_SELL,Lot_Size,MarketInfo(Symbol(),MODE_BID),max_slippage,
                             sl_price,
                             tp_price,
@@ -527,8 +480,6 @@ int market_sell_order() {
             err_num=GetLastError();
             if(err_num!=ERR_NO_ERROR) Print("Error in Sending a Sell Order : ",ErrorDescription(err_num));
         }
-
-      }
       tries=tries+1;
    }
 
