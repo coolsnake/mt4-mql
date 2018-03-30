@@ -27,8 +27,8 @@ extern int    Trail_Stop_Pips      = 200;                                  // Tr
 extern int    Trail_Stop_Jump_Pips = 10;                                   // Trail Stop Shift (Pips or Points)
 extern string Averaging.Type       = "Pyramid | Average | Both*";          // averaging type for splitting positions
 extern string Indicators           = "--------------------";               // Signal Multiple Indicators
-extern int    loop_back_bars       = 2;                                    // Loop Back Bars (0 to disable)
-extern string Lookback.PriceType   = "Close | High/Low*";                  // Price Type of Loop Back Bars
+extern int    lookback_bars        = 2;                                    // Lookback bars (0 to disable)
+extern string Lookback.PriceType   = "Close | High/Low*";                  // Price Type of Lookback bars
 extern bool   RSI                  = false;                                // Relative Strength Index (RSI)
 extern bool   RVI                  = false;                                // Relative Vigor Index (RVI)
 extern bool   CCI                  = false;                                // Commodity Channel Index (CCI)
@@ -40,15 +40,6 @@ extern int    max_slippage         = 10;                                   // Ma
 extern int    max_orders           = 10;                                   // Max Open Trades
 extern bool   close_on_opposite    = false;                                // Close on Opposite Signal
 extern bool   hedge_trades         = true;                                 // Hedge on Opposite Signal
-extern string ATR_Levels           = "--------------------";               // ATR Setup
-extern bool   enable_atr           = false;                                // Enable ATR-based levels (disabling pip levels)
-extern string ATR.Timeframe        = "M1 | M5 | M15 | M30 | H1 | H4 | D1*";
-extern int    atr_period           = 21;                                   // ATR Period
-extern double ATR_SL               = 2;                                    // Stop Loss ATR Multiplier
-extern double ATR_TP               = 4;                                    // Take Profit ATR Multiplier
-extern double ATR_TS               = 1;                                    // Trailing Stop ATR Multiplier
-extern double ATR_BE               = 0.5;                                  // Break Even ATR Multiplier
-extern double ATR_PL               = 2;                                    // Profit Lock ATR Multiplier
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,7 +51,6 @@ int      time_frame;                         // signal timeframe
 int      entry_type;                         // averaging type
 int      price_type;                         // price type of lookback bars
 int      MA_Method;                          // moving average method
-int      atr_tf;                             // ATR Time Frame
 
 int      last_type = -1;
 datetime bar_time, p_time;
@@ -74,9 +64,9 @@ int      trail_stop_pips;
 int      tkt_num;
 int      trend_tf;
 bool     buy, sell;
-double   sma, macd, rsi, min_lot, atr;
+double   sma, macd, rsi, min_lot;
 int      lot_decimals = 2;
-double   maj_pips, uj_pips, maj_atr, uj_atr, ma;
+double   maj_pips, uj_pips, ma;
 string   maj_dir, uj_dir;
 double   ind1, ind2, sig1, sig2;
 int      err_num;
@@ -136,32 +126,22 @@ int onInit() {
    if (MA_Method == -1 || MA_Method > MODE_LWMA) return(catch("onInit(4)  Invalid input parameter MA.Method = "+ DoubleQuoteStr(MA.Method), ERR_INVALID_INPUT_PARAMETER));
    MA.Method = MaMethodDescription(MA_Method);
 
-   // ATR.Timeframe
-   sValue = ATR.Timeframe;
-   if (Explode(sValue, "*", elems, 2) > 1) {
-      size = Explode(elems[0], "|", elems, NULL);
-      sValue = elems[size-1];
-   }
-   atr_tf = StrToPeriod(sValue, F_ERR_INVALID_PARAMETER);
-   if (atr_tf==-1 || atr_tf > PERIOD_D1)         return(catch("onInit(5)  Invalid input parameter ATR.Timeframe = "+ DoubleQuoteStr(ATR.Timeframe), ERR_INVALID_INPUT_PARAMETER));
-   ATR.Timeframe = PeriodDescription(atr_tf);
 
 
-
-   // legacy
+   // legacy source
    min_lot = MarketInfo(Symbol(), MODE_MINLOT);
    if (min_lot == 0.01) lot_decimals = 2;
    if (min_lot == 0.1)  lot_decimals = 1;
    if (min_lot == 1)    lot_decimals = 0;
 
-   if (invalid_pair(Major_Code))                              return(catch("onInit(6)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(UJ_Code))                                 return(catch("onInit(7)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(JPY_Cross))                               return(catch("onInit(8)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (time_frame < Period())                                 return(catch("onInit(9)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
-   if (BE_Pips > Trail_Stop_Pips && Trail_Stop_Pips > 0)      return(catch("onInit(10)  Breakeven pips ("+ BE_Pips +") is greater than trailing stop ("+ Trail_Stop_Pips +")", ERR_INVALID_INPUT_PARAMETER));
-   if (!loop_back_bars && !MA_Period && !RSI && !RVI && !CCI) return(catch("onInit(11)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(Major_Code))                             return(catch("onInit(5)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(UJ_Code))                                return(catch("onInit(6)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(JPY_Cross))                              return(catch("onInit(7)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (time_frame < Period())                                return(catch("onInit(8)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
+   if (BE_Pips > Trail_Stop_Pips && Trail_Stop_Pips > 0)     return(catch("onInit(9)  Breakeven pips ("+ BE_Pips +") is greater than trailing stop ("+ Trail_Stop_Pips +")", ERR_INVALID_INPUT_PARAMETER));
+   if (!lookback_bars && !MA_Period && !RSI && !RVI && !CCI) return(catch("onInit(10)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
 
-   return(catch("onInit(12)"));
+   return(catch("onInit(11)"));
 }
 
 
@@ -177,47 +157,40 @@ int onTick() {
 
    if (Time[0] > bar_time) {
       if (total_orders() < max_orders) {
-         if (loop_back_bars > 1) {
+         if (lookback_bars > 1) {
             if (price_type == TPRICE_HIGHLOW) {
-               buy = (
-                  ( major_pos=="L"
-                   && iClose(Major_Code,time_frame,1)>iHigh(Major_Code,time_frame,iHighest(Major_Code,time_frame,MODE_HIGH,loop_back_bars,2))
-                   && iClose(UJ_Code,time_frame,1)>iHigh(UJ_Code,time_frame,iHighest(UJ_Code,time_frame,MODE_HIGH,loop_back_bars,2))
-                   )
+               buy = (major_pos == "L"
+                   && iClose(Major_Code, time_frame, 1) > iHigh(Major_Code, time_frame, iHighest(Major_Code, time_frame, MODE_HIGH, lookback_bars, 2))
+                   && iClose(UJ_Code,    time_frame, 1) > iHigh(UJ_Code,    time_frame, iHighest(UJ_Code,    time_frame, MODE_HIGH, lookback_bars, 2)))
                    ||
-                   ( major_pos=="R"
-                   && iClose(Major_Code,time_frame,1)<iLow(Major_Code,time_frame,iLowest(Major_Code,time_frame,MODE_LOW,loop_back_bars,2))
-                   && iClose(UJ_Code,time_frame,1)>iHigh(UJ_Code,time_frame,iHighest(UJ_Code,time_frame,MODE_HIGH,loop_back_bars,2))
-                  )
-               );
-               sell = (
-                  ( major_pos=="L"
-                   && iClose(Major_Code,time_frame,1)<iLow(Major_Code,time_frame,iLowest(Major_Code,time_frame,MODE_LOW,loop_back_bars,2))
-                   && iClose(UJ_Code,time_frame,1)<iLow(UJ_Code,time_frame,iLowest(UJ_Code,time_frame,MODE_LOW,loop_back_bars,2))
-                   )
-                   ||
-                   ( major_pos=="R"
-                   && iClose(Major_Code,time_frame,1)>iHigh(Major_Code,time_frame,iHighest(Major_Code,time_frame,MODE_HIGH,loop_back_bars,2))
-                   && iClose(UJ_Code,time_frame,1)<iLow(UJ_Code,time_frame,iLowest(UJ_Code,time_frame,MODE_LOW,loop_back_bars,2))
-                   )
-               );
+                   (major_pos == "R"
+                   && iClose(Major_Code, time_frame, 1) <  iLow(Major_Code, time_frame,  iLowest(Major_Code, time_frame, MODE_LOW,  lookback_bars, 2))
+                   && iClose(UJ_Code,    time_frame, 1) > iHigh(UJ_Code,    time_frame, iHighest(UJ_Code,    time_frame, MODE_HIGH, lookback_bars, 2)));
+
+               sell = (major_pos == "L"
+                    && iClose(Major_Code, time_frame, 1) < iLow(Major_Code, time_frame, iLowest(Major_Code, time_frame, MODE_LOW, lookback_bars, 2))
+                    && iClose(UJ_Code,    time_frame, 1) < iLow(UJ_Code,    time_frame, iLowest(UJ_Code,    time_frame, MODE_LOW, lookback_bars, 2)))
+                    ||
+                    (major_pos == "R"
+                    && iClose(Major_Code, time_frame, 1) > iHigh(Major_Code, time_frame, iHighest(Major_Code, time_frame, MODE_HIGH, lookback_bars, 2))
+                    && iClose(UJ_Code,    time_frame, 1) <  iLow(UJ_Code,    time_frame,  iLowest(UJ_Code,    time_frame, MODE_LOW,  lookback_bars, 2)));
             }
             else {
                buy = (major_pos == "L"
-                      && iClose(Major_Code, time_frame, 1) > iClose(Major_Code, time_frame, loop_back_bars)
-                      && iClose(UJ_Code,    time_frame, 1) > iClose(UJ_Code,    time_frame, loop_back_bars))
-                   ||
+                      && iClose(Major_Code, time_frame, 1) > iClose(Major_Code, time_frame, lookback_bars)
+                      && iClose(UJ_Code,    time_frame, 1) > iClose(UJ_Code,    time_frame, lookback_bars))
+                     ||
                      (major_pos == "R"
-                      && iClose(Major_Code, time_frame, 1) < iClose(Major_Code, time_frame, loop_back_bars)
-                      && iClose(UJ_Code,    time_frame, 1) > iClose(UJ_Code,    time_frame, loop_back_bars));
+                      && iClose(Major_Code, time_frame, 1) < iClose(Major_Code, time_frame, lookback_bars)
+                      && iClose(UJ_Code,    time_frame, 1) > iClose(UJ_Code,    time_frame, lookback_bars));
 
                sell = (major_pos == "L"
-                       && iClose(Major_Code, time_frame, 1) < iClose(Major_Code, time_frame, loop_back_bars)
-                       && iClose(UJ_Code,    time_frame, 1) < iClose(UJ_Code,    time_frame, loop_back_bars))
-                    ||
+                       && iClose(Major_Code, time_frame, 1) < iClose(Major_Code, time_frame, lookback_bars)
+                       && iClose(UJ_Code,    time_frame, 1) < iClose(UJ_Code,    time_frame, lookback_bars))
+                      ||
                       (major_pos == "R"
-                       && iClose(Major_Code, time_frame, 1) > iClose(Major_Code, time_frame, loop_back_bars)
-                       && iClose(UJ_Code,    time_frame, 1) < iClose(UJ_Code,    time_frame, loop_back_bars));
+                       && iClose(Major_Code, time_frame, 1) > iClose(Major_Code, time_frame, lookback_bars)
+                       && iClose(UJ_Code,    time_frame, 1) < iClose(UJ_Code,    time_frame, lookback_bars));
             }
          }
          else {
@@ -225,55 +198,26 @@ int onTick() {
             sell = true;
          }
 
-         if (enable_atr) atr = iATR(Symbol(), atr_tf, atr_period, 1);
+         buy  = buy  && (entry_type==ENTRY_BOTH
+                     || (entry_type==ENTRY_AVERAGE && Close[1] < Open[1])
+                     || (entry_type==ENTRY_PYRAMID && Close[1] > Open[1]));
 
-         buy = buy && (
-            (
-                  (
-                     (entry_type==ENTRY_BOTH)
-                     ||
-                     (entry_type==ENTRY_AVERAGE && Close[1]<Open[1])
-                     ||
-                     (entry_type==ENTRY_PYRAMID && Close[1]>Open[1])
-                   )
-             )
-         );
-
-         sell = sell && (
-            (
-               (
-                  (entry_type==ENTRY_BOTH)
-                  ||
-                  (entry_type==ENTRY_AVERAGE && Close[1]>Open[1])
-                  ||
-                  (entry_type==ENTRY_PYRAMID && Close[1]<Open[1])
-                )
-             )
-         );
+         sell = sell && (entry_type==ENTRY_BOTH
+                     || (entry_type==ENTRY_AVERAGE && Close[1] > Open[1])
+                     || (entry_type==ENTRY_PYRAMID && Close[1] < Open[1]));
 
          if (RSI) {
-            ind1=iRSI(Major_Code,time_frame,14,PRICE_CLOSE,1);
-            ind2=iRSI(UJ_Code,time_frame,14,PRICE_CLOSE,1);
-            buy=buy &&
-                (
-                (ind1>50 && major_pos=="L")
-                ||
-                (ind1<50 && major_pos=="R")
-                )
-                && ind2>50;
-            sell=sell &&
-                 (
-                 (ind1<50 && major_pos=="L")
-                 ||
-                 (ind1>50 && major_pos=="R")
-                 )
-
-                 && ind2<50;
+            ind1 = iRSI(Major_Code, time_frame, 14, PRICE_CLOSE, 1);
+            ind2 = iRSI(UJ_Code,    time_frame, 14, PRICE_CLOSE, 1);
+            buy  = buy  && ind2 > 50 && ((major_pos=="L" && ind1 > 50)
+                                      || (major_pos=="R" && ind1 < 50));
+            sell = sell && ind2 < 50 && ((major_pos=="L" && ind1 < 50)
+                                      || (major_pos=="R" && ind1 > 50));
          }
 
          if (CCI) {
-            ind1=iCCI(Major_Code,time_frame,14,PRICE_TYPICAL,1);
-            ind2=iCCI(UJ_Code,time_frame,14,PRICE_TYPICAL,1);
+            ind1 = iCCI(Major_Code, time_frame, 14, PRICE_TYPICAL, 1);
+            ind2 = iCCI(UJ_Code,    time_frame, 14, PRICE_TYPICAL, 1);
             buy=buy &&
                 (
                 (ind1>0 && major_pos=="L")
@@ -341,31 +285,6 @@ int onTick() {
             if(hedge_trades || (!hedge_trades && !exist_order(OP_BUY))) market_sell_order();
          }
       }
-      /*
-      // originally commented by abokwaik
-      else {
-         if (GetOldestOpenPositionType() == OP_BUY) {
-            if (major_pos=="L" && (maj_pips<-1*maj_atr*atr_multi || uj_pips<-1*uj_atr*atr_multi)) {
-               close_current_orders(OP_BUY);
-               //market_sell_order();
-            }
-            if (major_pos=="R" && (maj_pips>maj_atr*atr_multi || uj_pips<-1*uj_atr*atr_multi)) {
-               close_current_orders(OP_BUY);
-               //market_sell_order();
-            }
-         }
-         if (GetOldestOpenPositionType() == OP_SELL) {
-            if (major_pos=="L" && (maj_pips>maj_atr*atr_multi || uj_pips>uj_atr*atr_multi)) {
-               close_current_orders(OP_SELL);
-               //market_buy_order();
-            }
-            if (major_pos=="R" && (maj_pips<-1*maj_atr*atr_multi || uj_pips>uj_atr*atr_multi)) {
-               close_current_orders(OP_SELL);
-               //market_buy_order();
-            }
-         }
-      }
-      */
       bar_time = Time[0];
    }
 
@@ -414,13 +333,6 @@ int market_buy_order() {
    if(TP_Pips==0) tp_price=0;
    else tp_price=MarketInfo(Symbol(),MODE_ASK)+TP_Pips*Point;
 
-   if(enable_atr)
-   {
-      if(ATR_SL>0) sl_price=NormalizeDouble(MarketInfo(Symbol(),MODE_ASK)-atr*ATR_SL,Digits);
-      else sl_price=0;
-      if(ATR_TP>0) tp_price=NormalizeDouble(MarketInfo(Symbol(),MODE_ASK)+atr*ATR_TP,Digits);
-      else tp_price=0;
-   }
    while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
    {
          NewOrder=OrderSend(Symbol(),OP_BUY,Lot_Size,MarketInfo(Symbol(),MODE_ASK),max_slippage,
@@ -461,13 +373,6 @@ int market_sell_order() {
    else sl_price = MarketInfo(Symbol(),MODE_BID)+SL_Pips*Point;
    if(TP_Pips==0) tp_price=0;
    else tp_price=MarketInfo(Symbol(),MODE_BID)-TP_Pips*Point;
-   if(enable_atr)
-   {
-      if(ATR_SL>0) sl_price=NormalizeDouble(MarketInfo(Symbol(),MODE_BID)+atr*ATR_SL,Digits);
-      else sl_price=0;
-      if(ATR_TP>0) tp_price=NormalizeDouble(MarketInfo(Symbol(),MODE_BID)-atr*ATR_TP,Digits);
-      else tp_price=0;
-   }
 
    while(NewOrder<=0 && tries< oper_max_tries && MarketInfo(Symbol(),MODE_ASK)-MarketInfo(Symbol(),MODE_BID)<=max_spread*Point)
    {
@@ -486,30 +391,6 @@ int market_sell_order() {
    if (!catch("market_sell_order(1)"))
       return(NewOrder);
    return(NULL);
-}
-
-
-/**
- * Return the order type of the oldest open position.
- *
- * @return int - order type or EMPTY (-1) if no open position exists;
- *               EMPTY_VALUE in case of errors
- */
-int GetOldestOpenPositionType() {
-   int ord_type = -1;
-
-   for (int i=0; i < OrdersTotal(); i++) {
-      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
-         break;
-
-      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol() && (OrderType()==OP_BUY || OrderType()==OP_SELL)) {
-         ord_type = OrderType();
-      }
-   }
-
-   if (!catch("GetOldestOpenPositionType(1)"))
-      return(ord_type);
-   return(EMPTY_VALUE);
 }
 
 
@@ -583,8 +464,6 @@ void close_current_orders(int ord_type) {
 void trail_stop() {
    double new_sl=0; bool OrderMod=false;
    trail_stop_pips=Trail_Stop_Pips;
-   if (enable_atr)
-      trail_stop_pips = atr*ATR_TS/Point;
 
    if (trail_stop_pips==0) return;
    for(int i=0;i<OrdersTotal();i++)
@@ -634,26 +513,6 @@ void trail_stop() {
 
 
 /**
- * Whether or not a symbol is subscribed. A symbol is subscribed if it's visible in the MarketWatch window.
- *
- * @param  string symbol
- *
- * @return bool
- */
-bool invalid_pair(string symbol) {
-   return(!MarketInfo(symbol, MODE_TIME) || GetLastError());
-
-   //original MQL5:
-   //
-   //for (int i=0; i < SymbolsTotal(true); i++) {
-   //   if (SymbolName(i, true) == symbol)
-   //      return(false);
-   //}
-   //return(true);
-}
-
-
-/**
  * Move stops of matching open positions to Breakeven.
  */
 void move_to_BE() {
@@ -661,7 +520,6 @@ void move_to_BE() {
    bool   OrderMod = false;
 
    trail_stop_pips = BE_Pips;
-   if (enable_atr) trail_stop_pips = atr * ATR_BE/Point;
    if (!trail_stop_pips) return;
 
    for (int i=0; i < OrdersTotal(); i++) {
@@ -708,7 +566,6 @@ void move_to_BE() {
 void move_to_PL() {
    double new_sl=0; bool OrderMod=false;
    trail_stop_pips=PL_Pips;
-   if (enable_atr) trail_stop_pips = atr * ATR_PL/Point;
 
    if(trail_stop_pips==0) return;
    for(int i=0;i<OrdersTotal();i++)
@@ -752,9 +609,25 @@ void move_to_PL() {
       }
    }
    catch("move_to_PL(1)");
-
-   return;
-
-   // suppress compiler warnings
-   GetOldestOpenPositionType();
 }
+
+
+/**
+ * Whether or not a symbol is subscribed. A symbol is subscribed if it's visible in the MarketWatch window.
+ *
+ * @param  string symbol
+ *
+ * @return bool
+ */
+bool invalid_pair(string symbol) {
+   return(!MarketInfo(symbol, MODE_TIME) || GetLastError());
+
+   //original MQL5:
+   //
+   //for (int i=0; i < SymbolsTotal(true); i++) {
+   //   if (SymbolName(i, true) == symbol)
+   //      return(false);
+   //}
+   //return(true);
+}
+
