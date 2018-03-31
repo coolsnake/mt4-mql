@@ -11,39 +11,39 @@ int __DEINIT_FLAGS__[];
 
 extern string Signal.Timeframe     = "M1 | M5 | M15 | M30 | H1 | H4 | D1";
 
-extern string _____________________________1_ = "";                        // Pair Setup
-extern string Major_Code           = "GBPUSD";                             // Major Pair Code
-extern string UJ_Code              = "USDJPY";                             // DollarYen Pair Code
-extern string JPY_Cross            = "GBPJPY";                             // Yen Cross Pair Code
-extern string major_pos            = "L";                                  // Major Direction Left/Right
+extern string _____________________________1_ = "";                  // Pair Setup
+extern string Major_Code             = "GBPUSD";                     // Major Pair Code
+extern string UJ_Code                = "USDJPY";                     // DollarYen Pair Code
+extern string JPY_Cross              = "GBPJPY";                     // Yen Cross Pair Code
+extern string major_pos              = "L";                          // Major Direction Left/Right
 
-extern string _____________________________2_ = "";                        // Trade Setup
-extern double Fixed_Lot_Size       = 0;                                    // Fixed Lots (set to 0 enable variable lots)
-extern double Bal_Perc_Lot_Size    = 1;                                    // Variable Lots as % of Balance
-extern int    SL_Pips              = 1000;                                 // Stop Loss (Pips or Points)
-extern int    TP_Pips              = 5000;                                 // Take Profit (Pips or Points)
-extern int    BE_Pips              = 200;                                  // Break Even , 0 to disable (Pips or Points)
-extern int    PL_Pips              = 200;                                  // Profit Lock , 0 to disable (Pips or Points)
-extern int    Trail_Stop_Pips      = 200;                                  // Trailing Stop, 0 to disable (Pips or Points)
-extern int    Trail_Stop_Jump_Pips = 10;                                   // Trail Stop Shift (Pips or Points)
-extern int    max_orders           = 10;                                   // Max Open Trades
-extern string Averaging.Type       = "Pyramid | Average | Both*";          // averaging type for splitting positions
-extern bool   close_on_opposite    = false;                                // Close on Opposite Signal
-extern bool   hedge_trades         = true;                                 // Hedge on Opposite Signal
+extern string _____________________________2_ = "";                  // Trade Setup
+extern double Fixed_Lot_Size         = 0;                            // Fixed Lots (set to 0 enable variable lots)
+extern double Bal_Perc_Lot_Size      = 1;                            // Variable Lots as % of Balance
+extern double TakeProfit.Pips        = 500;                          // 0 = disabled
+extern double StopLoss.Pips          = 100;                          // 0 = disabled
+extern double Breakeven.Pips         = 20;                           // 0 = disabled
+extern double LockProfit.Pips        = 20;                           // 0 = disabled
+extern int    TrailingStop.Pips      = 20;                           // 0 = disabled
+extern int    TrailingStop.Step.Pips = 1;                            // update step size
+extern int    max_orders             = 10;                           // Max Open Trades
+extern string Averaging.Type         = "Pyramid | Average | Both*";  // averaging type for splitting positions
+extern bool   close_on_opposite      = false;                        // Close on Opposite Signal
+extern bool   hedge_trades           = true;                         // Hedge on Opposite Signal
 
-extern string _____________________________3_ = "";                        // Signal Multiple Indicators
-extern int    lookback_bars        = 2;                                    // Lookback bars (0 to disable)
-extern string Lookback.PriceType   = "Close | High/Low*";                  // Price Type of Lookback bars
-extern bool   RSI                  = false;                                // Relative Strength Index (RSI)
-extern bool   RVI                  = false;                                // Relative Vigor Index (RVI)
-extern bool   CCI                  = false;                                // Commodity Channel Index (CCI)
-extern int    MA_Period            = 34;                                   // Moving Average Period (0 to disable)
-extern string MA.Method            = "SMA | EMA | SMMA* | LWMA";
+extern string _____________________________3_ = "";                  // Signal Multiple Indicators
+extern int    lookback_bars          = 2;                            // Lookback bars (0 to disable)
+extern string Lookback.PriceType     = "Close | High/Low*";          // Price Type of Lookback bars
+extern bool   RSI                    = false;                        // Relative Strength Index (RSI)
+extern bool   RVI                    = false;                        // Relative Vigor Index (RVI)
+extern bool   CCI                    = false;                        // Commodity Channel Index (CCI)
+extern int    MA_Period              = 34;                           // Moving Average Period (0 to disable)
+extern string MA.Method              = "SMA | EMA | SMMA* | LWMA";
 
-extern string _____________________________4_ = "";                        // Trade Conditions
-extern int    max_spread           = 100;                                  // Max Spread
-extern int    max_slippage         = 10;                                   // Max Slippage
-extern int    Magic_Number         = 160704;                               // Magic Number
+extern string _____________________________4_ = "";                  // Trade Conditions
+extern int    max_spread             = 100;                          // Max Spread
+extern int    max_slippage           = 10;                           // Max Slippage
+extern int    Magic_Number           = 160704;                       // Magic Number
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -118,12 +118,12 @@ int onInit() {
 
 
    // legacy code
-   if (invalid_pair(Major_Code))                             return(catch("onInit(5)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(UJ_Code))                                return(catch("onInit(6)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (invalid_pair(JPY_Cross))                              return(catch("onInit(7)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
-   if (time_frame < Period())                                return(catch("onInit(8)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
-   if (BE_Pips > Trail_Stop_Pips && Trail_Stop_Pips > 0)     return(catch("onInit(9)  Breakeven pips ("+ BE_Pips +") is greater than trailing stop ("+ Trail_Stop_Pips +")", ERR_INVALID_INPUT_PARAMETER));
-   if (!lookback_bars && !MA_Period && !RSI && !RVI && !CCI) return(catch("onInit(10)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(Major_Code))                                    return(catch("onInit(5)  First pair code ("+ Major_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(UJ_Code))                                       return(catch("onInit(6)  Second pair code ("+ UJ_Code +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (invalid_pair(JPY_Cross))                                     return(catch("onInit(7)  Second pair code ("+ JPY_Cross +") is invalid", ERR_INVALID_INPUT_PARAMETER));
+   if (time_frame < Period())                                       return(catch("onInit(8)  Invalid input signal timeframe ("+ time_frame +") is less than trading timeframe ("+ Period() +")", ERR_INVALID_INPUT_PARAMETER));
+   if (TrailingStop.Pips > 0 && Breakeven.Pips > TrailingStop.Pips) return(catch("onInit(9)  Breakeven pips ("+ Breakeven.Pips +") is greater than trailing stop ("+ TrailingStop.Pips +")", ERR_INVALID_INPUT_PARAMETER));
+   if (!lookback_bars && !MA_Period && !RSI && !RVI && !CCI)        return(catch("onInit(10)  Error: No signal triggers/indicators selected.", ERR_INVALID_INPUT_PARAMETER));
 
    return(catch("onInit(11)"));
 }
@@ -135,9 +135,9 @@ int onInit() {
  * @return int - error status
  */
 int onTick() {
-   if (BE_Pips         > 0) move_to_BE();
-   if (PL_Pips         > 0) move_to_PL();
-   if (Trail_Stop_Pips > 0) trail_stop();
+   if (Breakeven.Pips    > 0) move_to_BE();
+   if (LockProfit.Pips   > 0) move_to_PL();
+   if (TrailingStop.Pips > 0) trail_stop();
 
    if (Time[0] > bar_time) {
       if (total_orders() < max_orders) {
@@ -276,8 +276,8 @@ void market_buy_order() {
    if (Fixed_Lot_Size > 0) lots = Fixed_Lot_Size;
    else                    lots = NormalizeLots(AccountBalance() * Bal_Perc_Lot_Size/100 / MarketInfo(Symbol(), MODE_MARGINREQUIRED));
 
-   if (TP_Pips > 0) takeprofit = Ask + TP_Pips*Point;
-   if (SL_Pips > 0) stoploss   = Ask - SL_Pips*Point;
+   if (TakeProfit.Pips > 0) takeprofit = Ask + TakeProfit.Pips*Pip;
+   if (StopLoss.Pips   > 0) stoploss   = Ask - StopLoss.Pips*Pip;
 
    int tries = 0;
    while (tries < order_max_tries && MarketInfo(Symbol(), MODE_ASK)-MarketInfo(Symbol(), MODE_BID) <= max_spread*Point) {
@@ -299,8 +299,8 @@ void market_sell_order() {
    if (Fixed_Lot_Size > 0) lots = Fixed_Lot_Size;
    else                    lots = NormalizeLots(AccountBalance() * Bal_Perc_Lot_Size/100 / MarketInfo(Symbol(), MODE_MARGINREQUIRED));
 
-   if (TP_Pips > 0) takeprofit = Bid - TP_Pips*Point;
-   if (SL_Pips > 0) stoploss   = Bid + SL_Pips*Point;
+   if (TakeProfit.Pips > 0) takeprofit = Bid - TakeProfit.Pips*Pip;
+   if (StopLoss.Pips   > 0) stoploss   = Bid + StopLoss.Pips*Pip;
 
    int tries = 0;
    while (tries < order_max_tries && MarketInfo(Symbol(), MODE_ASK)-MarketInfo(Symbol(), MODE_BID) <= max_spread*Point) {
@@ -363,10 +363,10 @@ void close_current_orders(int ord_type) {
  * Trail stops of matching open positions.
  */
 void trail_stop() {
-   if (!Trail_Stop_Pips)
+   if (!TrailingStop.Pips)
       return;
 
-   double stoploss;
+   double stop;
    int tries, orders = OrdersTotal();
 
    for (int i=0; i < orders; i++) {
@@ -375,33 +375,28 @@ void trail_stop() {
 
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
          RefreshRates();
+         stop  = 0;
+         tries = 0;
 
          if (OrderType() == OP_BUY) {
-            stoploss = 0;
-            if (Bid - OrderOpenPrice() > Trail_Stop_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() > OrderStopLoss()))
-               stoploss = OrderOpenPrice() + Point;
-
-            if (Bid - OrderStopLoss() > (Trail_Stop_Pips + Trail_Stop_Jump_Pips)*Point && OrderStopLoss() > OrderOpenPrice())
-               stoploss = Bid - Trail_Stop_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss > OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+            if (Bid > OrderOpenPrice() + TrailingStop.Pips*Pip) {
+               if      (OrderStopLoss() < OrderOpenPrice())                                       stop = Bid - TrailingStop.Pips*Pip;
+               else if (Bid > OrderStopLoss() + (TrailingStop.Pips + TrailingStop.Step.Pips)*Pip) stop = Bid - TrailingStop.Pips*Pip;
+            }
+            while (stop && tries < order_max_tries) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
                   break;
                warn("trail_stop(1)  Order SL Modify Error", GetLastError());
                tries++;
             }
          }
-         if (OrderType() == OP_SELL) {
-            stoploss = 0;
-            if (OrderOpenPrice()-Ask > Trail_Stop_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() < OrderStopLoss()))
-               stoploss = OrderOpenPrice() - Point;
-            if (OrderStopLoss() - Ask > (Trail_Stop_Pips + Trail_Stop_Jump_Pips)*Point && OrderStopLoss() < OrderOpenPrice())
-               stoploss = Ask + Trail_Stop_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
+         else if (OrderType() == OP_SELL) {
+            if (Ask < OrderOpenPrice() - TrailingStop.Pips*Pip) {
+               if      (!OrderStopLoss() || OrderStopLoss() > OrderOpenPrice())                   stop = Ask + TrailingStop.Pips*Pip;
+               else if (Ask < OrderStopLoss() - (TrailingStop.Pips + TrailingStop.Step.Pips)*Pip) stop = Ask + TrailingStop.Pips*Pip;
+            }
+            while (stop && tries < order_max_tries) {
+               if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
                   break;
                warn("trail_stop(2)  Order SL Modify Error", GetLastError());
                tries++;
@@ -417,10 +412,10 @@ void trail_stop() {
  * Move stops of matching open positions to Breakeven.
  */
 void move_to_BE() {
-   if (!BE_Pips)
+   if (!Breakeven.Pips)
       return;
 
-   double stoploss;
+   double stop;
    int tries, orders = OrdersTotal();
 
    for (int i=0; i < orders; i++) {
@@ -429,31 +424,29 @@ void move_to_BE() {
 
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
          RefreshRates();
+         stop  = 0;
+         tries = 0;
 
          if (OrderType() == OP_BUY) {
-            stoploss = 0;
-            if (Bid - OrderOpenPrice() > BE_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() > OrderStopLoss()))
-               stoploss = OrderOpenPrice() + BE_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss > OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
-                  break;
-               warn("move_to_BE(1)  Order move to BE Modify error", GetLastError());
-               tries++;
+            if (Bid - OrderOpenPrice() > Breakeven.Pips*Pip && (!OrderStopLoss() || OrderOpenPrice() > OrderStopLoss())) {
+               stop = OrderOpenPrice() + Breakeven.Pips*Pip;
+               while (tries < order_max_tries && stop > OrderStopLoss()) {
+                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
+                     break;
+                  warn("move_to_BE(1)  Order move to BE Modify error", GetLastError());
+                  tries++;
+               }
             }
          }
-         if (OrderType() == OP_SELL) {
-            stoploss = 0;
-            if (OrderOpenPrice() - Ask > BE_Pips*Point && (!OrderStopLoss() || OrderOpenPrice() < OrderStopLoss()))
-               stoploss = OrderOpenPrice() - BE_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
-                  break;
-               warn("move_to_BE(2)  Order move to BE Modify error", GetLastError());
-               tries++;
+         else if (OrderType() == OP_SELL) {
+            if (OrderOpenPrice() - Ask > Breakeven.Pips*Pip && (!OrderStopLoss() || OrderOpenPrice() < OrderStopLoss())) {
+               stop = OrderOpenPrice() - Breakeven.Pips*Pip;
+               while (tries < order_max_tries && stop < OrderStopLoss()) {
+                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
+                     break;
+                  warn("move_to_BE(2)  Order move to BE Modify error", GetLastError());
+                  tries++;
+               }
             }
          }
       }
@@ -466,10 +459,10 @@ void move_to_BE() {
  * Move stops of matching open positions to Breakeven + a defined amount of profit.
  */
 void move_to_PL() {
-   if (!PL_Pips)
+   if (!LockProfit.Pips)
       return;
 
-   double stoploss;
+   double stop;
    int tries, orders = OrdersTotal();
 
    for (int i=0; i < orders; i++) {
@@ -478,31 +471,29 @@ void move_to_PL() {
 
       if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
          RefreshRates();
+         stop  = 0;
+         tries = 0;
 
          if (OrderType() == OP_BUY) {
-            stoploss = 0;
-            if (Bid - OrderOpenPrice() > PL_Pips*Point && OrderOpenPrice() < OrderStopLoss())
-               stoploss = OrderOpenPrice() + PL_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss && stoploss > OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
-                  break;
-               warn("move_to_PL(1)  Order move to PL Modify Error", GetLastError());
-               tries++;
+            if (Bid - OrderOpenPrice() > LockProfit.Pips*Pip && OrderOpenPrice() < OrderStopLoss()) {
+               stop = OrderOpenPrice() + LockProfit.Pips*Pip;
+               while (tries < order_max_tries && stop > OrderStopLoss()) {
+                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
+                     break;
+                  warn("move_to_PL(1)  Order move to PL Modify Error", GetLastError());
+                  tries++;
+               }
             }
          }
-         if (OrderType() == OP_SELL) {
-            stoploss = 0;
-            if (OrderOpenPrice() - Ask > PL_Pips*Point && OrderOpenPrice() > OrderStopLoss())
-               stoploss = OrderOpenPrice() - PL_Pips*Point;
-
-            tries = 0;
-            while (tries < order_max_tries && stoploss && stoploss < OrderStopLoss()) {
-               if (OrderModify(OrderTicket(), OrderOpenPrice(), stoploss, OrderTakeProfit(), 0, White))
-                  break;
-               warn("move_to_PL(2)  Order move to PL Modify Error", GetLastError());
-               tries++;
+         else if (OrderType() == OP_SELL) {
+            if (OrderOpenPrice() - Ask > LockProfit.Pips*Pip && OrderOpenPrice() > OrderStopLoss()) {
+               stop = OrderOpenPrice() - LockProfit.Pips*Pip;
+               while (tries < order_max_tries && stop < OrderStopLoss()) {
+                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
+                     break;
+                  warn("move_to_PL(2)  Order move to PL Modify Error", GetLastError());
+                  tries++;
+               }
             }
          }
       }
