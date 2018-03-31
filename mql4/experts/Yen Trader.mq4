@@ -9,14 +9,15 @@ int __DEINIT_FLAGS__[];
 
 ////////////////////////////////////////////////////// Configuration ////////////////////////////////////////////////////////
 
-extern int    Magic_Number         = 160704;                               // Magic Number
 extern string Signal.Timeframe     = "M1 | M5 | M15 | M30 | H1 | H4 | D1";
-extern string pair_setup           = "--------------------";               // Pair Setup
+
+extern string _____________________________1_ = "";                        // Pair Setup
 extern string Major_Code           = "GBPUSD";                             // Major Pair Code
 extern string UJ_Code              = "USDJPY";                             // DollarYen Pair Code
 extern string JPY_Cross            = "GBPJPY";                             // Yen Cross Pair Code
 extern string major_pos            = "L";                                  // Major Direction Left/Right
-extern string trade_setup          = "--------------------";               // Trade Setup
+
+extern string _____________________________2_ = "";                        // Trade Setup
 extern double Fixed_Lot_Size       = 0;                                    // Fixed Lots (set to 0 enable variable lots)
 extern double Bal_Perc_Lot_Size    = 1;                                    // Variable Lots as % of Balance
 extern int    SL_Pips              = 1000;                                 // Stop Loss (Pips or Points)
@@ -25,8 +26,12 @@ extern int    BE_Pips              = 200;                                  // Br
 extern int    PL_Pips              = 200;                                  // Profit Lock , 0 to disable (Pips or Points)
 extern int    Trail_Stop_Pips      = 200;                                  // Trailing Stop, 0 to disable (Pips or Points)
 extern int    Trail_Stop_Jump_Pips = 10;                                   // Trail Stop Shift (Pips or Points)
+extern int    max_orders           = 10;                                   // Max Open Trades
 extern string Averaging.Type       = "Pyramid | Average | Both*";          // averaging type for splitting positions
-extern string Indicators           = "--------------------";               // Signal Multiple Indicators
+extern bool   close_on_opposite    = false;                                // Close on Opposite Signal
+extern bool   hedge_trades         = true;                                 // Hedge on Opposite Signal
+
+extern string _____________________________3_ = "";                        // Signal Multiple Indicators
 extern int    lookback_bars        = 2;                                    // Lookback bars (0 to disable)
 extern string Lookback.PriceType   = "Close | High/Low*";                  // Price Type of Lookback bars
 extern bool   RSI                  = false;                                // Relative Strength Index (RSI)
@@ -34,12 +39,11 @@ extern bool   RVI                  = false;                                // Re
 extern bool   CCI                  = false;                                // Commodity Channel Index (CCI)
 extern int    MA_Period            = 34;                                   // Moving Average Period (0 to disable)
 extern string MA.Method            = "SMA | EMA | SMMA* | LWMA";
-extern string trade_conditions     = "--------------------";               // Trade Conditions
+
+extern string _____________________________4_ = "";                        // Trade Conditions
 extern int    max_spread           = 100;                                  // Max Spread
 extern int    max_slippage         = 10;                                   // Max Slippage
-extern int    max_orders           = 10;                                   // Max Open Trades
-extern bool   close_on_opposite    = false;                                // Close on Opposite Signal
-extern bool   hedge_trades         = true;                                 // Hedge on Opposite Signal
+extern int    Magic_Number         = 160704;                               // Magic Number
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
