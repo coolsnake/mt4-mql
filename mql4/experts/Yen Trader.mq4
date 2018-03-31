@@ -36,8 +36,8 @@ extern string Lookback.PriceType     = "Close | High/Low*";          // Price Ty
 extern bool   RSI                    = false;                        // Relative Strength Index
 extern bool   RVI                    = false;                        // Relative Vigor Index
 extern bool   CCI                    = false;                        // Commodity Channel Index
-extern int    MA_Period              = 34;                           // Moving Average Period (0 to disable)
-extern string MA.Method              = "SMA | EMA | SMMA* | LWMA";
+extern string MA.Method              = "SMA | EMA* | LWMA";          //
+extern int    MA_Period              = 67;                           // Moving Average Period (0 = disabled)
 
 extern string _____________________________4_ = "";                  // Order Management
 extern int    max_spread             = 100;                          // Max Spread
