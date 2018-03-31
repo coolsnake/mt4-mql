@@ -9,38 +9,37 @@ int __DEINIT_FLAGS__[];
 
 ////////////////////////////////////////////////////// Configuration ////////////////////////////////////////////////////////
 
-extern string Signal.Timeframe     = "M1 | M5 | M15 | M30 | H1 | H4 | D1";
+extern string Signal.Timeframe       = "M1 | M5 | M15 | M30 | H1 | H4 | D1";
 
-extern string _____________________________1_ = "";                  // Pair Setup
+extern string _____________________________1_ = "";                  // Symbol Setup
 extern string Major_Code             = "GBPUSD";                     // Major Pair Code
 extern string UJ_Code                = "USDJPY";                     // DollarYen Pair Code
 extern string JPY_Cross              = "GBPJPY";                     // Yen Cross Pair Code
 extern string major_pos              = "L";                          // Major Direction Left/Right
 
 extern string _____________________________2_ = "";                  // Trade Setup
-extern double Fixed_Lot_Size         = 0;                            // Fixed Lots (set to 0 enable variable lots)
+extern double Fixed_Lot_Size         = 0;                            // Fixed Lots (0 = variable lots)
 extern double Bal_Perc_Lot_Size      = 1;                            // Variable Lots as % of Balance
 extern double TakeProfit.Pips        = 500;                          // 0 = disabled
 extern double StopLoss.Pips          = 100;                          // 0 = disabled
 extern double Breakeven.Pips         = 20;                           // 0 = disabled
-extern double LockProfit.Pips        = 20;                           // 0 = disabled
 extern int    TrailingStop.Pips      = 20;                           // 0 = disabled
 extern int    TrailingStop.Step.Pips = 1;                            // update step size
 extern int    max_orders             = 10;                           // Max Open Trades
 extern string Averaging.Type         = "Pyramid | Average | Both*";  // averaging type for splitting positions
-extern bool   close_on_opposite      = false;                        // Close on Opposite Signal
-extern bool   hedge_trades           = true;                         // Hedge on Opposite Signal
+extern bool   close_on_opposite      = false;                        // close open positions on opposite signal
+extern bool   hedge_trades           = true;                         // hedge open positions on opposite signal
 
-extern string _____________________________3_ = "";                  // Signal Multiple Indicators
+extern string _____________________________3_ = "";                  // Entry Signal Setup
 extern int    lookback_bars          = 2;                            // Lookback bars (0 to disable)
 extern string Lookback.PriceType     = "Close | High/Low*";          // Price Type of Lookback bars
-extern bool   RSI                    = false;                        // Relative Strength Index (RSI)
-extern bool   RVI                    = false;                        // Relative Vigor Index (RVI)
-extern bool   CCI                    = false;                        // Commodity Channel Index (CCI)
+extern bool   RSI                    = false;                        // Relative Strength Index
+extern bool   RVI                    = false;                        // Relative Vigor Index
+extern bool   CCI                    = false;                        // Commodity Channel Index
 extern int    MA_Period              = 34;                           // Moving Average Period (0 to disable)
 extern string MA.Method              = "SMA | EMA | SMMA* | LWMA";
 
-extern string _____________________________4_ = "";                  // Trade Conditions
+extern string _____________________________4_ = "";                  // Order Management
 extern int    max_spread             = 100;                          // Max Spread
 extern int    max_slippage           = 10;                           // Max Slippage
 extern int    Magic_Number           = 160704;                       // Magic Number
@@ -136,7 +135,6 @@ int onInit() {
  */
 int onTick() {
    if (Breakeven.Pips    > 0) move_to_BE();
-   if (LockProfit.Pips   > 0) move_to_PL();
    if (TrailingStop.Pips > 0) trail_stop();
 
    if (Time[0] > bar_time) {
@@ -452,53 +450,6 @@ void move_to_BE() {
       }
    }
    catch("move_to_BE(3)");
-}
-
-
-/**
- * Move stops of matching open positions to Breakeven + a defined amount of profit.
- */
-void move_to_PL() {
-   if (!LockProfit.Pips)
-      return;
-
-   double stop;
-   int tries, orders = OrdersTotal();
-
-   for (int i=0; i < orders; i++) {
-      if (!OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
-         break;
-
-      if (OrderMagicNumber()==Magic_Number && OrderSymbol()==Symbol()) {
-         RefreshRates();
-         stop  = 0;
-         tries = 0;
-
-         if (OrderType() == OP_BUY) {
-            if (Bid - OrderOpenPrice() > LockProfit.Pips*Pip && OrderOpenPrice() < OrderStopLoss()) {
-               stop = OrderOpenPrice() + LockProfit.Pips*Pip;
-               while (tries < order_max_tries && stop > OrderStopLoss()) {
-                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
-                     break;
-                  warn("move_to_PL(1)  Order move to PL Modify Error", GetLastError());
-                  tries++;
-               }
-            }
-         }
-         else if (OrderType() == OP_SELL) {
-            if (OrderOpenPrice() - Ask > LockProfit.Pips*Pip && OrderOpenPrice() > OrderStopLoss()) {
-               stop = OrderOpenPrice() - LockProfit.Pips*Pip;
-               while (tries < order_max_tries && stop < OrderStopLoss()) {
-                  if (OrderModify(OrderTicket(), OrderOpenPrice(), stop, OrderTakeProfit(), 0, Red))
-                     break;
-                  warn("move_to_PL(2)  Order move to PL Modify Error", GetLastError());
-                  tries++;
-               }
-            }
-         }
-      }
-   }
-   catch("move_to_PL(3)");
 }
 
 
