@@ -65,7 +65,9 @@ void CheckOpenSignal() {
  * @return int - trend value or NULL in case of errors
  */
 int GetNonLagMATrend(int bar) {
-   return(icNonLagMA(PERIOD_H4, 20, "4", 50, MovingAverage.MODE_TREND, bar));
+   int periods   = 20;
+   int maxValues = 200;
+   return(icNonLagMA(PERIOD_H4, periods, maxValues, MovingAverage.MODE_TREND, bar));
 }
 
 
