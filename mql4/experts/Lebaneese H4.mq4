@@ -18,6 +18,7 @@ extern int StopLoss.Pips   =  50;
 #include <stdfunctions.mqh>
 #include <stdlibs.mqh>
 #include <functions/EventListener.BarOpen.mqh>
+#include <iCustom/icNonLagMA.mqh>
 
 
 // position management
@@ -35,8 +36,9 @@ int    os.magicNumber = 43210;
  */
 int onTick() {
    if (EventListener.BarOpen(PERIOD_H4)) {
-      if (!isOpenPosition) CheckOpenSignal();
-      else                 CheckCloseSignal();        // don't check for close on an open signal
+      if (!isOpenPosition) {
+         CheckOpenSignal();
+      }
    }
    return(last_error);
 }
@@ -46,13 +48,24 @@ int onTick() {
  * Check for and handle entry conditions.
  */
 void CheckOpenSignal() {
+   int trend = GetNonLagMATrend(1);
+
+   // wait for trend change of last bar
+   if (Abs(trend) == 1) {
+      debug("CheckOpenSignal(1)  "+ TimeToStr(TimeCurrent(), TIME_FULL) +"  NonLagMA turned "+ ifString(trend==1, "up", "down"));
+   }
 }
 
 
 /**
- * Check for and handle exit conditions.
+ * Return the trend of the NonLagMA indicator at the specified bar.
+ *
+ * @param  int bar - bar index
+ *
+ * @return int - trend value or NULL in case of errors
  */
-void CheckCloseSignal() {
+int GetNonLagMATrend(int bar) {
+   return(icNonLagMA(PERIOD_H4, 20, "4", 50, MovingAverage.MODE_TREND, bar));
 }
 
 
